@@ -76,11 +76,15 @@ fun FolderListScreen(navController: NavController, fileViewModel: FileViewModel,
                 items(pdfFiles) { folder ->
                     FolderItem(folder,
                         onClick = {
+                            val folderPath = folder.absolutePath // ✅ Get full folder path
                             val images = folder.listFiles()
                                 ?.filter { it.extension in listOf("jpg", "jpeg", "png") }
                                 ?: emptyList()
-                            fileViewModel.setSessionFolderName(folder.name) // Pass folder name
+
+                            fileViewModel.isViewSessionActive = true // ✅ Set viewing session active
+                            fileViewModel.setSessionFolderName(folderPath) // ✅ Store full folder path
                             fileViewModel.imageFiles = images // ✅ Save images
+
                             navController.navigate("gridPreview")
                         },
                         onDelete = {

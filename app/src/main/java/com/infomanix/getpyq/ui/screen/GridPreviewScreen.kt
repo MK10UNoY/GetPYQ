@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,6 +37,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,27 +67,38 @@ import java.io.File
 @Composable
 fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel) {
     var pdfFile = fileViewModel.pdfFile
+    fileViewModel.setViewSession()
     val folderAddress by remember { mutableStateOf(fileViewModel.getSessionFolderName()) } // Dynamic if needed
     val imageList by remember { mutableStateOf(fileViewModel.imageFiles) }
 
+    //val folderName by remember { derivedStateOf { fileViewModel.getSessionFolderName()?.substringAfterLast("/") ?: "Unnamed" } }
+    val folderName by fileViewModel.folderName.collectAsState()  // ✅ Auto-updates UI
 
-    val folderName by remember { derivedStateOf { fileViewModel.getSessionFolderName()?.substringAfterLast("/") ?: "Unnamed" } }
-
+    var currentFolderName by remember { mutableStateOf("") } // Track UI state
+    Log.d("RenameDebug","foldername = $folderName")
+    Log.d("RenameDebug","currenFolderName = $currentFolderName")
     var showRenameBottomSheet by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    // 🔥 Ensure UI updates when folderName changes in ViewModel
+    LaunchedEffect(folderName) {
+        currentFolderName = folderName.toString().trim().substringAfterLast("/")
+    }
+    BackHandler(enabled = true) {
+        fileViewModel.endViewSession()
+        navController.popBackStack()
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column(modifier = Modifier.clickable { showRenameBottomSheet = true }) {
-                        if (folderName != null) {
-                            Text(
-                                text = folderName!!,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = currentFolderName,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                         Text(text = "click to rename", fontSize = 14.sp, color = Color.Gray)
                     }
                 },
@@ -170,11 +185,13 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
         folderAddress?.let { currentFolderPath ->
             RenameFolderBottomSheet(
                 fileViewModel = fileViewModel,
-                initialFolderName = folderName ?: "Untitled",
+                initialFolderName = currentFolderName,
                 currentFolderPath = currentFolderPath, // ✅ Pass full folder path
                 onDismiss = { showRenameBottomSheet = false },
                 onRenameSuccess = { newName ->
                     if (fileViewModel.renameFolder(newName, currentFolderPath)) {
+                        fileViewModel.setSessionFolderName(newName) // ✅ Update UI
+                        Log.d("RenameDebug","After Rename = $currentFolderName")
                         showRenameBottomSheet = false // ✅ Close rename modal
                     }
                 }

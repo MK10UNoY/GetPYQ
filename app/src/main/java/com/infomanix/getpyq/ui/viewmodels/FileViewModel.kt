@@ -10,35 +10,41 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
 class FileViewModel : ViewModel() {
     var imageFiles by mutableStateOf<List<File>>(emptyList())
     var pdfFile by mutableStateOf<File?>(null) // Stores the Pdf after the scan session
-    var folderName by mutableStateOf<String?>(null) //Stores the file path Absolute
+    private val _folderName = MutableStateFlow("GPQ_untitled")
+    val folderName = _folderName.asStateFlow()
 
-    // Tracks scan session status
-    var isScanSessionActive by mutableStateOf(false)
+    var isViewSessionActive by mutableStateOf(false)  // Tracks view session status
+    var isScanSessionActive by mutableStateOf(false)  // Tracks scan session status
 
     fun startScanSession() {
         isScanSessionActive = true
     }
-
+    fun setViewSession() {
+        isViewSessionActive = true
+    }
+    fun endViewSession() {
+        isViewSessionActive = false
+        clearSessionData() // Automatically clears when session ends
+    }
     fun endScanSession() {
         isScanSessionActive = false
         clearSessionData() // Automatically clears when session ends
     }
-
-    var isViewSessionActive: Boolean = false  // Tracks view session status
-
     fun setSessionFolderName(name: String) {
         Log.d("SetFolder", "Setting folder name: $name")
-        folderName = name
+        _folderName.value = name
     }
 
     fun getSessionFolderName(): String? {
-        Log.d("SetFolder", "Getting folder: $folderName")
-        return folderName
+        Log.d("SetFolder", "Getting folder: $_folderName")
+        return _folderName.value
     }
 
     fun updateImagePaths(newFolderPath: String) {
@@ -49,7 +55,7 @@ class FileViewModel : ViewModel() {
     fun renameFolder(newName: String, customFolderPath: String? = null): Boolean {
         val TAG = "RenameDebug"  // Unified logging tag
 
-        val folderToRename = customFolderPath ?: folderName ?: return false
+        val folderToRename = customFolderPath ?: _folderName.value ?: return false
         val oldFile = File(folderToRename)
 
         if (!oldFile.exists() || !oldFile.isDirectory) {
@@ -65,7 +71,7 @@ class FileViewModel : ViewModel() {
             Log.d(TAG, "Rename successful: ${newFile.absolutePath}")
 
             if (customFolderPath == null) {
-                folderName = newFile.absolutePath
+                _folderName.value = newFile.absolutePath
                 imageFiles = emptyList() // ✅ Ensures UI update
             }
 
@@ -91,9 +97,9 @@ class FileViewModel : ViewModel() {
         pdfFile = pdf
     }
 
-    fun clearSessionData() {
+    private fun clearSessionData() {
         imageFiles = emptyList()
         pdfFile = null
-        folderName = null
+        _folderName.value = null.toString()
     }
 }
