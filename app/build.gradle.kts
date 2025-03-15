@@ -78,5 +78,4 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle.v130)
     implementation(libs.androidx.camera.view.v130) // Required for PreviewView
     implementation(libs.androidx.material.icons.extended)
-
 }
