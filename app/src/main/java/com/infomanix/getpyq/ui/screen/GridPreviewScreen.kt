@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.sharp.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Airplay
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
@@ -52,6 +54,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,8 +78,6 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
     val folderName by fileViewModel.folderName.collectAsState()  // ✅ Auto-updates UI
 
     var currentFolderName by remember { mutableStateOf("") } // Track UI state
-    Log.d("RenameDebug","foldername = $folderName")
-    Log.d("RenameDebug","currenFolderName = $currentFolderName")
     var showRenameBottomSheet by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -93,13 +94,39 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
         topBar = {
             TopAppBar(
                 title = {
-                    Column(modifier = Modifier.clickable { showRenameBottomSheet = true }) {
-                        Text(
-                            text = currentFolderName,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(text = "click to rename", fontSize = 14.sp, color = Color.Gray)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { showRenameBottomSheet = true }
+                        ) {
+                            Text(
+                                text = currentFolderName,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1, // Limit to one line
+                                overflow = TextOverflow.Ellipsis // Add "..." if text is too long
+                            )
+                            Text(
+                                text = "click to rename",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        IconButton(
+                            modifier = Modifier.size(30.dp),
+                            onClick = {
+                                Toast.makeText(context, "Auto rename Started", Toast.LENGTH_SHORT).show()
+                                fileViewModel.autoRenameFolder(context) }
+                        ) {
+                            Icon(Icons.Filled.Autorenew, contentDescription = "Auto Rename")
+                        }
                     }
                 },
                 navigationIcon = {
@@ -109,8 +136,12 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
                 },
                 actions = {
                     IconButton(onClick = {
-                        pdfFile = PdfUtils.compileImagesToPdf(context, imageList, folderName) ?: return@IconButton
-                        pdfFile?.let { fileViewModel.pdfFile = it }// Save PDF reference in ViewModel
+                        pdfFile = PdfUtils.compileImagesToPdf(context, imageList, currentFolderName)
+                            ?: return@IconButton
+                        pdfFile?.let {
+                            fileViewModel.pdfFile = it
+                            PdfUtils.openPdfWithExternalApp2(context, it) // ✅ Auto-open PDF after creation
+                        }// Save PDF reference in ViewModel
                     }) {
                         Icon(imageVector = Icons.Filled.Download, contentDescription = "Download")
                     }
@@ -126,7 +157,9 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    BottomBarButton("Add Page", Icons.Default.Add) { /* Add Page Logic */ }
+                    BottomBarButton("Add Page", Icons.Default.Add) {
+                        navController.navigate("camera")
+                    }
                     BottomBarButton("Share", Icons.Default.Share) { /* Share Logic */ }
                     //BottomBarButton("Edit", Icons.Default.Edit) { /* Edit Logic */ }
                     //BottomBarButton("Search", Icons.Default.Search) { /* Search Logic */ }
@@ -191,7 +224,7 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
                 onRenameSuccess = { newName ->
                     if (fileViewModel.renameFolder(newName, currentFolderPath)) {
                         fileViewModel.setSessionFolderName(newName) // ✅ Update UI
-                        Log.d("RenameDebug","After Rename = $currentFolderName")
+                        Log.d("RenameDebug", "After Rename = $currentFolderName")
                         showRenameBottomSheet = false // ✅ Close rename modal
                     }
                 }
