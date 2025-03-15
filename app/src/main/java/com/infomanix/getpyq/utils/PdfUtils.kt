@@ -8,14 +8,9 @@ import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Environment
-import android.os.Handler
-import android.os.Looper
 import android.os.ParcelFileDescriptor
-import android.util.Log
 import android.widget.Toast
 import androidx.core.content.FileProvider
-import java.io.BufferedOutputStream
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 
@@ -31,8 +26,7 @@ object PdfUtils {
         if (!pdfDir.exists()) return emptyList()
 
         pdfDir.listFiles { file -> file.extension == "pdf" }?.forEach { file ->
-            val pdfDocument =
-                PdfRenderer(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY))
+            val pdfDocument = PdfRenderer(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY))
             val pageCount = pdfDocument.pageCount
             val fileSize = file.length() / 1024 // KB
             pdfList.add(PdfFile(file.nameWithoutExtension, file.absolutePath, pageCount, fileSize))
@@ -46,8 +40,7 @@ object PdfUtils {
      */
     fun getPdfPages(context: Context, pdfUri: Uri): List<PdfPage> {
         val pages = mutableListOf<PdfPage>()
-        val fileDescriptor =
-            context.contentResolver.openFileDescriptor(pdfUri, "r") ?: return emptyList()
+        val fileDescriptor = context.contentResolver.openFileDescriptor(pdfUri, "r") ?: return emptyList()
         val pdfRenderer = PdfRenderer(fileDescriptor)
 
         for (i in 0 until pdfRenderer.pageCount) {
@@ -66,120 +59,95 @@ object PdfUtils {
      * Compile images into a single PDF and store it in the "GetPYQ" folder in Downloads.
      */
     fun compileImagesToPdf(context: Context, imageFiles: List<File>, pdfFileName: String): File? {
-        val downloadsDir =
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val getPYQFolder = File(downloadsDir, "GetPYQ").apply { if (!exists()) mkdirs() }
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val getPYQFolder = File(downloadsDir, "GetPYQ")
 
-        val outputPdf = generateUniqueFileName(getPYQFolder, pdfFileName)
+        if (!getPYQFolder.exists()) getPYQFolder.mkdirs()
+
+        // Ensure unique filename if it already exists
+        var outputPdf = File(getPYQFolder, "$pdfFileName.pdf")
+        var fileIndex = 1
+        while (outputPdf.exists()) {
+            outputPdf = File(getPYQFolder, "${pdfFileName}_$fileIndex.pdf")
+            fileIndex++
+        }
+
         val pdfDocument = PdfDocument()
 
         try {
             imageFiles.forEachIndexed { index, file ->
-                val options = BitmapFactory.Options().apply {
-                    inJustDecodeBounds = true
-                    BitmapFactory.decodeFile(file.path, this) // Get dimensions
-                    inJustDecodeBounds = false
-                    inSampleSize =
-                        calculateInSampleSize(outWidth, outHeight, 800, 1000) // Aggressive scaling
-                    inPreferredConfig = Bitmap.Config.RGB_565 // Lower memory format
-                }
-                val scaledBitmap = BitmapFactory.decodeFile(file.path, options)
+                val originalBitmap = BitmapFactory.decodeFile(file.path)
 
-                scaledBitmap?.let {
-                    val pageInfo =
-                        PdfDocument.PageInfo.Builder(it.width, it.height, index + 1).create()
-                    val page = pdfDocument.startPage(pageInfo)
+                // Scale down image to reduce file size
+                val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, 1000, 1400, true)
 
-                    page.canvas.drawBitmap(it, 0f, 0f, null)
-                    pdfDocument.finishPage(page)
-                    it.recycle() // Free memory
-                }
+                val pageInfo = PdfDocument.PageInfo.Builder(scaledBitmap.width, scaledBitmap.height, index + 1).create()
+                val page = pdfDocument.startPage(pageInfo)
+
+                page.canvas.drawBitmap(scaledBitmap, 0f, 0f, null)
+                pdfDocument.finishPage(page)
+
+                originalBitmap.recycle()
+                scaledBitmap.recycle()
             }
 
-            BufferedOutputStream(FileOutputStream(outputPdf)).use { outputStream ->
+            FileOutputStream(outputPdf).use { outputStream ->
                 pdfDocument.writeTo(outputStream)
             }
-            pdfDocument.close()
 
+            pdfDocument.close() // ✅ Close the document before returning
+
+            // ✅ Show Toast with PDF Name
             Toast.makeText(context, "PDF Saved: ${outputPdf.name}", Toast.LENGTH_LONG).show()
 
-            return outputPdf
+            // ✅ Prompt User to Open the PDF
+            openPdfWithExternalApp(context, outputPdf)
+
+            return outputPdf // ✅ Return the generated PDF file
 
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(context, "Error Saving PDF!", Toast.LENGTH_LONG).show()
-        } finally {
             pdfDocument.close()
         }
 
-        return null
+        return null // If something goes wrong, return null
     }
-
-    /**
-     * Helper to generate a unique file name*/
-    private fun generateUniqueFileName(directory: File, baseName: String): File {
-        var file = File(directory, "$baseName.pdf")
-        var index = 1
-        while (file.exists()) {
-            file = File(directory, "${baseName}_$index.pdf")
-            index++
-        }
-        return file
-    }
-
-    /**
-     * Calculate optimal inSampleSize for scaling
-     */
-    private fun calculateInSampleSize(
-        origWidth: Int,
-        origHeight: Int,
-        reqWidth: Int,
-        reqHeight: Int,
-    ): Int {
-        var inSampleSize = 1
-        if (origHeight > reqHeight || origWidth > reqWidth) {
-            val halfHeight = origHeight / 2
-            val halfWidth = origWidth / 2
-            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
-                inSampleSize *= 2
-            }
-        }
-        return inSampleSize
-    }
-
     /**
      * Opens the compiled PDF with the default PDF reader on the device.
      */
-    fun openPdfWithExternalApp2(context: Context, pdfFile: File) {
-        if (!pdfFile.exists()) {
-            Log.e("Pdf", "PDF file does not exist at: ${pdfFile.absolutePath}")
-            return
-        } else {
-            Log.d("Pdf", "PDF file exists at: ${pdfFile.absolutePath}")
-        }
-
+    private fun openPdfWithExternalApp2(context: Context, pdfFile: File) {
         try {
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", pdfFile)
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/pdf")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) // Grant read access
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Start as a new task
+            }
+
+            context.startActivity(Intent.createChooser(intent, "Open PDF with"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "No PDF viewer found!", Toast.LENGTH_LONG).show()
+        }
+    }
+    /**
+     * Open a PDF file using an external PDF viewer.
+     */
+    fun openPdfWithExternalApp(context: Context, pdfFile: File) {
+        try {
+            val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", pdfFile)
+
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/pdf")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
-            // Try opening with the default PDF viewer first
-            val packageManager = context.packageManager
-            val resolvedActivities = packageManager.queryIntentActivities(intent, 0)
-
-            if (resolvedActivities.isNotEmpty()) {
-                context.startActivity(intent) // Open with default app
-            } else {
-                // No default app found, show chooser
-                val chooserIntent = Intent.createChooser(intent, "Open PDF with")
-                context.startActivity(chooserIntent)
-            }
+            context.startActivity(Intent.createChooser(intent, "Open PDF with"))
         } catch (e: Exception) {
-            Log.e("Pdf", "Failed to open PDF", e)
-            Toast.makeText(context, "No PDF viewer found!", Toast.LENGTH_LONG).show()
+            e.printStackTrace()
         }
     }
 
@@ -189,18 +157,36 @@ object PdfUtils {
     fun deletePdf(pdfFile: File): Boolean {
         return if (pdfFile.exists()) pdfFile.delete() else false
     }
+    /*
+        Extract a single page from an existing PDF and save it as a new PDF file.
+    */
+    /*fun extractPageFromPdf(context: Context, pdfUri: Uri, pageNumber: Int, outputPdfName: String): File? {
+        val fileDescriptor = context.contentResolver.openFileDescriptor(pdfUri, "r") ?: return null
+        val pdfRenderer = PdfRenderer(fileDescriptor)
 
+        if (pageNumber < 1 || pageNumber > pdfRenderer.pageCount) {
+            pdfRenderer.close()
+            return null
+        }
+
+        val page = pdfRenderer.openPage(pageNumber - 1)
+        val bitmap = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+        page.close()
+        pdfRenderer.close()
+
+        val extractedPdf = compileImagesToPdf(context, listOf(bitmapToFile(context, bitmap, outputPdfName)), outputPdfName)
+        bitmap.recycle()
+
+        return extractedPdf
+    }*/
     /**
      * Convert a Bitmap to a File and store it in temporary storage.
      */
     private fun bitmapToFile(context: Context, bitmap: Bitmap, fileName: String): File {
         val file = File(context.cacheDir, "$fileName.jpg")
         FileOutputStream(file).use { outputStream ->
-            bitmap.compress(
-                Bitmap.CompressFormat.JPEG,
-                80,
-                outputStream
-            ) // Compress with 80% quality
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream) // Compress with 80% quality
         }
         return file
     }

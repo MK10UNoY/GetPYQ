@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <external-files-path
-        name="scans"
-        path="GetPYQ" />
-    <external-path
-        name="downloads"
-        path="Download/GetPYQ/" />
+    <external-files-path name="scans" path="GetPYQ"/>
 </paths>

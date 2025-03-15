@@ -1,6 +1,5 @@
 package com.infomanix.getpyq.ui.viewmodels
 
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -11,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
-import com.infomanix.getpyq.utils.OCRUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
@@ -103,36 +101,5 @@ class FileViewModel : ViewModel() {
         imageFiles = emptyList()
         pdfFile = null
         _folderName.value = null.toString()
-    }
-    private fun extractTextForRenaming(context: Context, onTextExtracted: (String) -> Unit) {
-        val firstImage = imageFiles.firstOrNull()
-        if (firstImage == null) {
-            Log.e("FileViewModel", "No images found in folder.")
-            onTextExtracted("Renamed_Folder") // Fallback name
-            return
-        }
-
-        OCRUtils.extractTextFromImage(firstImage, context) { extractedName ->
-            // 🔹 Sanitize extracted name (remove invalid characters)
-            var cleanName = extractedName.replace(Regex("[^a-zA-Z0-9_ -]"), "_").trim()
-            if (cleanName.isBlank()) cleanName = "Renamed_Folder"
-
-            onTextExtracted(cleanName) // ✅ Callback with extracted name
-        }
-    }
-
-    fun autoRenameFolder(context: Context) {
-        extractTextForRenaming(context) { extractedName ->
-            val currentPath = _folderName.value
-            Log.d("AutoRename", "Current Folder Path: $currentPath")
-            Log.d("AutoRename", "Extracted Name: $extractedName")
-
-            if (currentPath.isEmpty()) {
-                Log.e("FileViewModel", "Current folder path is null or empty.")
-                return@extractTextForRenaming
-            }
-
-            renameFolder(extractedName, currentPath)
-        }
     }
 }
