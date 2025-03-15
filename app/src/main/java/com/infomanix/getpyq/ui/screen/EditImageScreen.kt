@@ -2,6 +2,7 @@ package com.infomanix.getpyq.ui.screen
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.slideInHorizontally
@@ -53,8 +54,12 @@ import com.infomanix.getpyq.utils.ImageUtils
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun EditImageScreen(navController: NavController, fileViewModel: FileViewModel) {
+    Log.d("CameraX", fileViewModel.getSessionFolderName().toString().substringAfterLast("/"))
     var rotationAngle by remember { mutableFloatStateOf(0f) }
-    val imageList = fileViewModel.imageFiles
+    val imageList = remember {
+        if (fileViewModel.isViewSessionActive) fileViewModel.newlyScannedImages
+        else fileViewModel.imageFiles
+    }
     var currentIndex by remember { mutableIntStateOf(0) }
 
     if (imageList.isEmpty()) return
@@ -108,7 +113,9 @@ fun EditImageScreen(navController: NavController, fileViewModel: FileViewModel) 
         ) {
             Row(
                 horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier.fillMaxWidth().padding(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
             ) {
                 ActionButton("No Crop") { /* Implement No Crop */ }
                 ActionButton("Auto Crop") { /* Implement Auto Crop */ }
@@ -116,7 +123,10 @@ fun EditImageScreen(navController: NavController, fileViewModel: FileViewModel) 
 
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth().background(Color.DarkGray).padding(12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.DarkGray)
+                    .padding(12.dp)
             ) {
                 ActionButton("Previous") {
                     if (currentIndex > 0) {

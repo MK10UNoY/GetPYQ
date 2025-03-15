@@ -102,18 +102,27 @@ import java.util.concurrent.Executors
 fun CameraScannerScreen(navController: NavController, fileViewModel: FileViewModel) {
     val context = LocalContext.current
     val executor = remember { Executors.newSingleThreadExecutor() }
-    val outputDirectory = remember { getOutputDirectory(context) }
+    val outputDirectory = remember {
+        val sessionFolder = fileViewModel.getSessionFolderName()?.let { File(it) }
+
+        if (fileViewModel.isViewSessionActive && sessionFolder != null && sessionFolder.exists()) {
+            sessionFolder
+        } else {
+            val newDir = getOutputDirectory(context)
+            if (!newDir.exists()) newDir.mkdirs() // Ensure folder exists
+            newDir
+        }
+    }
+
     val capturedImages = remember {
         mutableStateListOf<File>().apply {
-            if (fileViewModel.isScanSessionActive) {
-                addAll(fileViewModel.imageFiles)
-            } else {
-                val existingFiles =
-                    outputDirectory.listFiles()?.filter { it.extension == "jpg" } ?: emptyList()
-                addAll(existingFiles)
+            if (!fileViewModel.isViewSessionActive) {
+                // 🔹 Fresh Scan Session → Start with an empty list
+                clear()
             }
         }
     }
+
     val imageCapture = remember {
         ImageCapture.Builder().setTargetRotation(
             context.display.rotation
@@ -137,6 +146,19 @@ fun CameraScannerScreen(navController: NavController, fileViewModel: FileViewMod
         ) {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
+        Log.d("AddPage", "${fileViewModel.getSessionFolderName()}")
+        Log.d("AddPage", "$outputDirectory")
+        Log.d("AddPage", "$capturedImages")
+        val cameFromGridPreview =
+            navController.previousBackStackEntry?.destination?.route == "gridPreview"
+        Log.d("SessionCheck", "Came from GridPreview: $cameFromGridPreview")
+
+        if (!cameFromGridPreview) {
+            fileViewModel.endViewSession()
+            fileViewModel.endScanSession()
+            Log.d("SessionCheck", "Reset View and Scan Sessions!")
+        }
+
     }
 
     BackHandler(enabled = true) {
@@ -178,15 +200,15 @@ fun CameraScannerScreen(navController: NavController, fileViewModel: FileViewMod
                     Row(
                     ) {
                         IconButton(onClick = {
-                                if (capturedImages.isNotEmpty()) {
-                                    showExitDialog = true  // Ask before exit
-                                } else {
-                                    if (!fileViewModel.isScanSessionActive) { // Cleanup only if session is not active
-                                        outputDirectory.deleteRecursively()
-                                    }
-                                    navController.popBackStack()
+                            if (capturedImages.isNotEmpty()) {
+                                showExitDialog = true  // Ask before exit
+                            } else {
+                                if (!fileViewModel.isScanSessionActive) { // Cleanup only if session is not active
+                                    outputDirectory.deleteRecursively()
                                 }
-                            }) {
+                                navController.popBackStack()
+                            }
+                        }) {
                             Icon(
                                 modifier = Modifier.size(35.dp),
                                 imageVector = Icons.Default.Close,
@@ -194,405 +216,410 @@ fun CameraScannerScreen(navController: NavController, fileViewModel: FileViewMod
                                 tint = Color.White
                             )
                         }
-                        }
-                    },
-                    colors = TopAppBarColors(
-                        containerColor = Color.DarkGray,
-                        scrolledContainerColor = Color.Transparent,
-                        navigationIconContentColor = Color.Transparent,
-                        titleContentColor = Color.Transparent,
-                        actionIconContentColor = Color.Transparent
-                    ),
-                    actions = {
-                        IconButton(onClick = {
-                            isTorchOn = !isTorchOn
-                            imageCapture.camera?.cameraControl?.enableTorch(isTorchOn)
-                        }) {
-                            Icon(
-                                imageVector = if (isTorchOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
-                                contentDescription = "Toggle Flash",
-                                tint = if (isTorchOn) Color.Yellow else Color.White
-                            )
-                        }
-                        // Grid Toggle Button
-                        IconButton(onClick = { isGridEnabled = !isGridEnabled }) {
-                            Icon(
-                                imageVector = if (isGridEnabled) Icons.Filled.GridOn else Icons.Filled.GridOff,
-                                contentDescription = "Toggle Grid",
-                                tint = if (isGridEnabled) Color.Green else Color.White
-                            )
-                        }
-                    }
-                    )
-                },
-                bottomBar = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color.Transparent)
-                                .padding(0.dp)
-                        ) {
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .navigationBarsPadding()
-                                .background(Color.DarkGray)
-                                .padding(5.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .background(Color.DarkGray),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                ActionBtn(onClick = {
-                                    /*Open Gallery */
-                                }, text = "Gallery", size = 35)
-                                ActionBtn(onClick = {
-                                    /* Open Gallery */
-                                }, text = "PDF", size = 35)
-                            }
-                            CaptureButton {
-                                capturePhoto(context, imageCapture, outputDirectory, capturedImages)
-                            }
-                            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center) {
-                                ActionBtn(
-                                    onClick = {
-                                        if (capturedImages.isEmpty()) {
-                                            Toast.makeText(
-                                                context,
-                                                "No images to proceed",
-                                                Toast.LENGTH_SHORT
-                                            )
-                                                .show() // 🔹 Show Toast
-                                        } else {
-                                            // Save captured images to ViewModel
-                                            fileViewModel.imageFiles = capturedImages.toList()
-                                            fileViewModel.setSessionFolderName(outputDirectory.absolutePath)
-                                            fileViewModel.startScanSession()
-                                            proceedClicked = true
-                                            showExitDialog = false
-                                            navController.navigate("edit")
-                                        }
-                                    },
-                                    text = "Proceed", size = 50
-                                )
-                            }
-                        }
-                    }
-                }
-            ) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues) // Avoids overlap with topBar and bottomBar
-                        .border(2.dp, Color.Black)
-                ) {
-                    CameraPreviewScreen(imageCapture = imageCapture, isGridEnabled = isGridEnabled)
-                }
-            }
-
-            if (showExitDialog) {
-                ExitConfirmationDialog(
-                    onConfirmExit = {
-                        capturedImages.forEach { it.delete() }
-                        outputDirectory.deleteRecursively()
-                        fileViewModel.endScanSession()
-                        showExitDialog = false
-                        // Ensure state update before navigation
-                        navController.popBackStack()
-                    },
-                    onDismiss = { showExitDialog = false }
-                )
-            }
-        }
-
-        @Composable
-        fun ExitConfirmationDialog(onConfirmExit: () -> Unit, onDismiss: () -> Unit) {
-            AlertDialog(
-                onDismissRequest = onDismiss,
-                title = { Text("Exit without saving?") },
-                text = { Text("You have unsaved images. Do you want to discard them?") },
-                confirmButton = {
-                    Button(onClick = onConfirmExit) {
-                        Text("Yes, Discard")
                     }
                 },
-                dismissButton = {
-                    Button(onClick = onDismiss) {
-                        Text("Cancel")
-                    }
-                }
-            )
-        }
-
-        @Composable
-        fun CameraPreviewScreen(imageCapture: ImageCapture, isGridEnabled: Boolean) {
-            val context = LocalContext.current
-            val lifecycleOwner = LocalLifecycleOwner.current
-
-            AndroidView(
-                factory = { ctx ->
-                    val previewView = PreviewView(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
+                colors = TopAppBarColors(
+                    containerColor = Color.DarkGray,
+                    scrolledContainerColor = Color.Transparent,
+                    navigationIconContentColor = Color.Transparent,
+                    titleContentColor = Color.Transparent,
+                    actionIconContentColor = Color.Transparent
+                ),
+                actions = {
+                    IconButton(onClick = {
+                        isTorchOn = !isTorchOn
+                        imageCapture.camera?.cameraControl?.enableTorch(isTorchOn)
+                    }) {
+                        Icon(
+                            imageVector = if (isTorchOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
+                            contentDescription = "Toggle Flash",
+                            tint = if (isTorchOn) Color.Yellow else Color.White
                         )
                     }
-
-                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                    cameraProviderFuture.addListener({
-                        try {
-                            val cameraProvider = cameraProviderFuture.get()
-                            Log.d("CameraX", "Camera provider loaded")
-
-                            val preview = Preview.Builder().build().also { preview: Preview ->
-                                preview.setSurfaceProvider(previewView.surfaceProvider)
-                            }
-
-                            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-                            cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(
-                                lifecycleOwner,
-                                cameraSelector,
-                                preview,
-                                imageCapture
-                            )
-
-                            Log.d("CameraX", "Camera bound successfully")
-                        } catch (e: Exception) {
-                            Log.e("CameraX", "Failed to bind camera", e)
-                        }
-                    }, ContextCompat.getMainExecutor(ctx))
-
-                    previewView
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-            if (isGridEnabled) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val width = size.width
-                    val height = size.height
-                    val thirdX = width / 3
-                    val thirdY = height / 3
-
-                    drawLine(
-                        Color.White,
-                        Offset(thirdX, 0f),
-                        Offset(thirdX, height),
-                        strokeWidth = 2f
-                    )
-                    drawLine(
-                        Color.White,
-                        Offset(thirdX * 2, 0f),
-                        Offset(thirdX * 2, height),
-                        strokeWidth = 2f
-                    )
-                    drawLine(
-                        Color.White,
-                        Offset(0f, thirdY),
-                        Offset(width, thirdY),
-                        strokeWidth = 2f
-                    )
-                    drawLine(
-                        Color.White,
-                        Offset(0f, thirdY * 2),
-                        Offset(width, thirdY * 2),
-                        strokeWidth = 2f
-                    )
-                }
-            }
-        }
-
-        fun capturePhoto(
-            context: Context,
-            imageCapture: ImageCapture,
-            outputDirectory: File,
-            capturedImages: MutableList<File>,
-        ) {
-            val photoFile = File(
-                outputDirectory,
-                "_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.jpg"
-            )
-
-            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-
-            imageCapture.takePicture(
-                outputOptions,
-                Executors.newSingleThreadExecutor(),
-                object : ImageCapture.OnImageSavedCallback {
-                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                        // Fix orientation
-                        val correctedBitmap = ImageUtils.getCorrectlyOrientedBitmap(photoFile)
-
-                        // Save corrected bitmap back to file
-                        FileOutputStream(photoFile).use { out ->
-                            correctedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-                        }
-
-                        // Recycle to free memory
-                        correctedBitmap.recycle()
-
-                        // Compress image (optional)
-                        ImageUtils.compressImage2(photoFile, 1500)
-
-                        // Add to list
-                        capturedImages.add(photoFile)
-                        Log.d("CameraX", "Image saved: ${photoFile.absolutePath}")
-                    }
-
-                    override fun onError(exception: ImageCaptureException) {
-                        Log.e("CameraX", "Image capture failed", exception)
+                    // Grid Toggle Button
+                    IconButton(onClick = { isGridEnabled = !isGridEnabled }) {
+                        Icon(
+                            imageVector = if (isGridEnabled) Icons.Filled.GridOn else Icons.Filled.GridOff,
+                            contentDescription = "Toggle Grid",
+                            tint = if (isGridEnabled) Color.Green else Color.White
+                        )
                     }
                 }
             )
-        }
-
-        @Composable
-        fun CaptureButton(onClick: () -> Unit) {
-            Box(
-                modifier = Modifier
-                    .size(70.dp)
-                    .background(Color(0xFFE3F2FD), shape = CircleShape)
-                    .border(3.dp, Color.Gray, shape = CircleShape)
-                    .clickable { onClick() }
-            )
-        }
-
-        @Composable
-        fun ImagePreviewRow(imageUris: List<Uri>, onDelete: (File) -> Unit) {
-            if (imageUris.isNotEmpty()) {
+        },
+        bottomBar = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(4.dp)
                         .background(Color.Transparent)
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(0.dp)
                 ) {
-                    imageUris.asReversed().forEachIndexed { index, uri ->
-                        Box(
-                            modifier = Modifier
-                                .height(90.dp)
-                                .width(80.dp)
-                                .padding(4.dp),
-                            contentAlignment = Alignment.TopEnd
-                        ) {
-                            Image(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(8.dp)
-                                    .border(2.dp, Color.White, shape = RoundedCornerShape(8.dp))
-                                    .clip(
-                                        RoundedCornerShape(8.dp)
-                                    ),
-                                painter = rememberAsyncImagePainter(uri),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop
-                            )
-
-                            // 🔹 Image Numbering (Top Left)
-                            Box(
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .background(Color.Red, shape = CircleShape)
-                                    .border(1.dp, Color.White, shape = CircleShape)
-                                    .align(Alignment.TopStart),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "${imageUris.size - index}",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            // 🔹 Delete Button (Top Right)
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .background(Color.Black, shape = CircleShape)
-                                    .border(1.dp, Color.White, shape = CircleShape)
-                                    .clickable { onDelete(File(uri.path!!)) }
-                                    .align(Alignment.TopEnd),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "X",
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .background(Color.DarkGray)
+                        .padding(5.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(Color.DarkGray),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        ActionBtn(onClick = {
+                            /*Open Gallery */
+                        }, text = "Gallery", size = 35)
+                        ActionBtn(onClick = {
+                            /* Open Gallery */
+                        }, text = "PDF", size = 35)
+                    }
+                    CaptureButton {
+                        capturePhoto(context, imageCapture, outputDirectory, capturedImages)
+                    }
+                    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center) {
+                        ActionBtn(
+                            onClick = {
+                                if (capturedImages.isEmpty()) {
+                                    Toast.makeText(
+                                        context,
+                                        "No images to proceed",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    // 🔹 Only add new images to the session
+                                    fileViewModel.addScannedImages(capturedImages)
+                                    fileViewModel.setSessionFolderName(outputDirectory.absolutePath)
+                                    fileViewModel.startScanSession()
+                                    proceedClicked = true
+                                    showExitDialog = false
+                                    navController.navigate("edit") // ✅ Move to Edit Screen
+                                }
+                            },
+                            text = "Proceed", size = 50
+                        )
                     }
                 }
             }
         }
-
-        fun getOutputDirectory(context: Context): File {
-            val mediaDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-            val sessionFolder =
-                File(
-                    mediaDir,
-                    "GetPYQ_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}"
-                )
-            if (!sessionFolder.exists()) sessionFolder.mkdirs()
-            return sessionFolder
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues) // Avoids overlap with topBar and bottomBar
+                .border(2.dp, Color.Black)
+        ) {
+            CameraPreviewScreen(imageCapture = imageCapture, isGridEnabled = isGridEnabled)
         }
+    }
 
-        fun deleteSessionFolder(folder: File) {
-            folder.listFiles()?.forEach { it.delete() }
-            folder.delete()
-            Log.d("CameraX", "Deleted session folder: ${folder.absolutePath}")
-        }
+    if (showExitDialog) {
+        ExitConfirmationDialog(
+            onConfirmExit = {
+                capturedImages.forEach { it.delete() }
+                outputDirectory.deleteRecursively()
+                fileViewModel.endScanSession()
+                showExitDialog = false
+                // Ensure state update before navigation
+                navController.popBackStack()
+            },
+            onDismiss = { showExitDialog = false }
+        )
+    }
+}
 
-        @Composable
-        fun ActionBtn(text: String, onClick: () -> Unit, size: Int) {
-            val sizer = size.dp
-            val icon = when (text.lowercase()) {
-                "pdf" -> Icons.Filled.PictureAsPdf
-                "gallery" -> Icons.Filled.Image
-                "proceed" -> Icons.Filled.LibraryAddCheck
-                else -> Icons.Filled.Air // Default icon
+@Composable
+fun ExitConfirmationDialog(onConfirmExit: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Exit without saving?") },
+        text = { Text("You have unsaved images. Do you want to discard them?") },
+        confirmButton = {
+            Button(onClick = onConfirmExit) {
+                Text("Yes, Discard")
             }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center, // Align elements naturally
-                modifier = Modifier.padding(0.dp)
-            )
-            {
-                IconButton(
-                    onClick = onClick,
-                    modifier = Modifier.size(sizer + 12.dp),
-                    colors = IconButtonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = Color.White,
-                        disabledContainerColor = Color.Transparent,
-                        disabledContentColor = Color.White
-                    )// Adjust size as needed
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = text,
-                        modifier = Modifier.size(sizer)
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun CameraPreviewScreen(imageCapture: ImageCapture, isGridEnabled: Boolean) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    AndroidView(
+        factory = { ctx ->
+            val previewView = PreviewView(ctx).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
+
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+            cameraProviderFuture.addListener({
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
+                    Log.d("CameraX", "Camera provider loaded")
+
+                    val preview = Preview.Builder().build().also { preview: Preview ->
+                        preview.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+
+                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview,
+                        imageCapture
                     )
+
+                    Log.d("CameraX", "Camera bound successfully")
+                } catch (e: Exception) {
+                    Log.e("CameraX", "Failed to bind camera", e)
                 }
-                Text(
-                    text,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+            }, ContextCompat.getMainExecutor(ctx))
+
+            previewView
+        },
+        modifier = Modifier.fillMaxSize()
+    )
+    if (isGridEnabled) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val width = size.width
+            val height = size.height
+            val thirdX = width / 3
+            val thirdY = height / 3
+
+            drawLine(
+                Color.White,
+                Offset(thirdX, 0f),
+                Offset(thirdX, height),
+                strokeWidth = 2f
+            )
+            drawLine(
+                Color.White,
+                Offset(thirdX * 2, 0f),
+                Offset(thirdX * 2, height),
+                strokeWidth = 2f
+            )
+            drawLine(
+                Color.White,
+                Offset(0f, thirdY),
+                Offset(width, thirdY),
+                strokeWidth = 2f
+            )
+            drawLine(
+                Color.White,
+                Offset(0f, thirdY * 2),
+                Offset(width, thirdY * 2),
+                strokeWidth = 2f
+            )
+        }
+    }
+}
+
+fun capturePhoto(
+    context: Context,
+    imageCapture: ImageCapture,
+    outputDirectory: File,
+    capturedImages: MutableList<File>,
+) {
+    // 🔹 Ensure directory exists
+    if (!outputDirectory.exists()) outputDirectory.mkdirs()
+
+    // 🔹 Get existing images in the directory
+    val existingImages = outputDirectory.listFiles { file -> file.extension == "jpg" } ?: emptyArray()
+
+    // 🔹 Generate new filename with index
+    val index = existingImages.size + 1 // Next available index
+    val photoFile = File(outputDirectory, "${outputDirectory.name}_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}-$index.jpg")
+
+    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+    imageCapture.takePicture(
+        outputOptions,
+        Executors.newSingleThreadExecutor(),
+        object : ImageCapture.OnImageSavedCallback {
+            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                // Fix orientation
+                val correctedBitmap = ImageUtils.getCorrectlyOrientedBitmap(photoFile)
+
+                // Save corrected bitmap back to file
+                FileOutputStream(photoFile).use { out ->
+                    correctedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+                }
+
+                // Recycle to free memory
+                correctedBitmap.recycle()
+
+                // Compress image (optional)
+                ImageUtils.compressImage2(photoFile, 1500)
+
+                // Add to list
+                capturedImages.add(photoFile)
+                Log.d("CameraX", "Image saved: ${photoFile.absolutePath}")
+            }
+
+            override fun onError(exception: ImageCaptureException) {
+                Log.e("CameraX", "Image capture failed", exception)
             }
         }
+    )
+}
+
+
+@Composable
+fun CaptureButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(70.dp)
+            .background(Color(0xFFE3F2FD), shape = CircleShape)
+            .border(3.dp, Color.Gray, shape = CircleShape)
+            .clickable { onClick() }
+    )
+}
+
+@Composable
+fun ImagePreviewRow(imageUris: List<Uri>, onDelete: (File) -> Unit) {
+    if (imageUris.isNotEmpty()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
+                .background(Color.Transparent)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            imageUris.asReversed().forEachIndexed { index, uri ->
+                Box(
+                    modifier = Modifier
+                        .height(90.dp)
+                        .width(80.dp)
+                        .padding(4.dp),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Image(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                            .border(2.dp, Color.White, shape = RoundedCornerShape(8.dp))
+                            .clip(
+                                RoundedCornerShape(8.dp)
+                            ),
+                        painter = rememberAsyncImagePainter(uri),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop
+                    )
+
+                    // 🔹 Image Numbering (Top Left)
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .background(Color.Red, shape = CircleShape)
+                            .border(1.dp, Color.White, shape = CircleShape)
+                            .align(Alignment.TopStart),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${imageUris.size - index}",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // 🔹 Delete Button (Top Right)
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(Color.Black, shape = CircleShape)
+                            .border(1.dp, Color.White, shape = CircleShape)
+                            .clickable { onDelete(File(uri.path!!)) }
+                            .align(Alignment.TopEnd),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "X",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun getOutputDirectory(context: Context): File {
+    val mediaDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    val sessionFolder =
+        File(
+            mediaDir,
+            "GetPYQ_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}"
+        )
+    if (!sessionFolder.exists()) sessionFolder.mkdirs()
+    return sessionFolder
+}
+
+fun deleteSessionFolder(folder: File) {
+    folder.listFiles()?.forEach { it.delete() }
+    folder.delete()
+    Log.d("CameraX", "Deleted session folder: ${folder.absolutePath}")
+}
+
+@Composable
+fun ActionBtn(text: String, onClick: () -> Unit, size: Int) {
+    val sizer = size.dp
+    val icon = when (text.lowercase()) {
+        "pdf" -> Icons.Filled.PictureAsPdf
+        "gallery" -> Icons.Filled.Image
+        "proceed" -> Icons.Filled.LibraryAddCheck
+        else -> Icons.Filled.Air // Default icon
+    }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center, // Align elements naturally
+        modifier = Modifier.padding(0.dp)
+    )
+    {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(sizer + 12.dp),
+            colors = IconButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = Color.White,
+                disabledContainerColor = Color.Transparent,
+                disabledContentColor = Color.White
+            )// Adjust size as needed
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                modifier = Modifier.size(sizer)
+            )
+        }
+        Text(
+            text,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+    }
+}

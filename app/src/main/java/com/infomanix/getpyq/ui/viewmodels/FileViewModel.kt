@@ -25,6 +25,8 @@ class FileViewModel : ViewModel() {
     var isViewSessionActive by mutableStateOf(false)  // Tracks view session status
     var isScanSessionActive by mutableStateOf(false)  // Tracks scan session status
 
+    var newlyScannedImages by mutableStateOf<List<File>>(emptyList())
+
     fun startScanSession() {
         isScanSessionActive = true
     }
@@ -52,6 +54,10 @@ class FileViewModel : ViewModel() {
     fun updateImagePaths(newFolderPath: String) {
         imageFiles = File(newFolderPath).listFiles()?.filter { it.isFile }?.toMutableStateList()
             ?: mutableStateListOf()
+    }
+    fun addScannedImages(images: List<File>) {
+        newlyScannedImages = images  // ✅ Store only new images for EditScreen
+        imageFiles = imageFiles + images // ✅ Append them to the full session list
     }
 
     fun renameFolder(newName: String, customFolderPath: String? = null): Boolean {

@@ -1,9 +1,6 @@
 package com.infomanix.getpyq.ui.screen
 
-import android.content.Context
-import android.content.Intent
 import android.graphics.BitmapFactory
-import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -41,7 +38,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,13 +54,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.infomanix.getpyq.ui.fragments.RenameFolderBottomSheet
 import com.infomanix.getpyq.ui.viewmodels.FileViewModel
 import com.infomanix.getpyq.utils.PdfUtils
-import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +77,7 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
 
     // 🔥 Ensure UI updates when folderName changes in ViewModel
     LaunchedEffect(folderName) {
+        fileViewModel.updateImagePaths(folderName)
         currentFolderName = folderName.toString().trim().substringAfterLast("/")
     }
     BackHandler(enabled = true) {
@@ -158,13 +153,14 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
                     BottomBarButton("Add Page", Icons.Default.Add) {
+                        Log.d("AddPage", fileViewModel.isViewSessionActive.toString())
                         navController.navigate("camera")
                     }
                     BottomBarButton("Share", Icons.Default.Share) { /* Share Logic */ }
                     //BottomBarButton("Edit", Icons.Default.Edit) { /* Edit Logic */ }
                     //BottomBarButton("Search", Icons.Default.Search) { /* Search Logic */ }
                     BottomBarButton("View PDF", Icons.Filled.Airplay) {
-                        pdfFile?.let { openPdfWithExternalApp(context, it) }
+                        pdfFile?.let { PdfUtils.openPdfWithExternalApp2(context, it) }
                     }
                 }
             }
@@ -241,22 +237,6 @@ fun BottomBarButton(label: String, icon: ImageVector, onClick: () -> Unit) {
     ) {
         Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp))
         Text(text = label, fontSize = 12.sp)
-    }
-}
-
-fun openPdfWithExternalApp(context: Context, pdfFile: File) {
-    try {
-        val uri: Uri =
-            FileProvider.getUriForFile(context, "${context.packageName}.provider", pdfFile)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/pdf")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) // Grant read access
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Start as a new task
-        }
-
-        context.startActivity(Intent.createChooser(intent, "Open PDF with"))
-    } catch (e: Exception) {
-        e.printStackTrace()
     }
 }
 
