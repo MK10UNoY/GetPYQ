@@ -1,11 +1,11 @@
 package com.infomanix.getpyq.ui.navigation
 
+import android.annotation.SuppressLint
 import android.os.Environment
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.*
-import com.google.accompanist.navigation.animation.rememberAnimatedNavController
-import com.google.accompanist.navigation.animation.AnimatedNavHost
-import com.google.accompanist.navigation.animation.composable
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -20,26 +20,63 @@ import com.infomanix.getpyq.ui.screen.GridPreviewScreen
 import com.infomanix.getpyq.ui.screen.SubjectListScreen
 import com.infomanix.getpyq.ui.viewmodels.FileViewModel
 import android.content.Context
-
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.infomanix.getpyq.data.UserPreferences
+import com.infomanix.getpyq.ui.screen.SplashScreen
+import com.infomanix.getpyq.ui.screen.UploaderLoginScreen
+import com.infomanix.getpyq.ui.screen.UploaderSignupScreen
+import com.infomanix.getpyq.ui.viewmodels.UserViewModel
+import com.infomanix.getpyq.utils.AuthManagerUtils
+import kotlinx.coroutines.flow.first
 fun getAppPicturesPath(context: Context): String {
     return context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)?.absolutePath ?: ""
 }
+
+@SuppressLint("NewApi")
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun AppNavigation(navController: NavHostController) {
-    val navController = rememberAnimatedNavController()
+    
     val fileViewModel: FileViewModel = viewModel()
+    val userViewModel: UserViewModel = viewModel()
     val rootPath = getAppPicturesPath(navController.context)
+    val context = LocalContext.current
+    // ✅ Fetch the UserPreferences instance just once
+    val userPreferences = remember { UserPreferences.getInstance(context) }
+    val isLoggedIn = remember { AuthManagerUtils.isLoggedIn() }
+    LaunchedEffect(Unit) {
+        userViewModel.loadUserState(context)
+    }
+    // ✅ Collect the splash state properly
+    val hasSeenSplash by userPreferences.hasSeenSplash.collectAsStateWithLifecycle(initialValue = false)
 
-    AnimatedNavHost(
+    NavHost(
         navController = navController,
-        startDestination = "home"
+        startDestination = if (hasSeenSplash) "home" else "splash"
     ) {
+        // ✅ Splash screen for first-time setup
+        composable(
+            "splash",
+            enterTransition = { fadeIn() },
+            exitTransition = { fadeOut() }) {
+            SplashScreen(navController, context = context)
+        }
         // ✅ Home screen (No Animation)
-        composable("home", enterTransition = { slideInBottom() }, exitTransition = { slideOutTop() }) { Home(navController) }
+        composable(
+            "home",
+            enterTransition = { slideInBottom() },
+            exitTransition = { slideOutTop() }) { Home(navController,userViewModel) }
 
         // ✅ Camera Screen (Slide + Fade)
-        composable("camera", enterTransition = { slideInBottom() }, exitTransition = { slideOutTop() }) {
+        composable(
+            "camera",
+            enterTransition = { slideInBottom() },
+            exitTransition = { slideOutTop() }) {
             CameraScannerScreen(navController, fileViewModel)
         }
 
@@ -55,7 +92,8 @@ fun AppNavigation(navController: NavHostController) {
         ) { backStackEntry ->
             val semester = backStackEntry.arguments?.getString("semester") ?: "8"
             val branch = backStackEntry.arguments?.getString("branch") ?: "EE"
-            val isMidsem = backStackEntry.arguments?.getString("mode")?.toBooleanStrictOrNull() ?: false
+            val isMidsem =
+                backStackEntry.arguments?.getString("mode")?.toBooleanStrictOrNull() ?: false
             SubjectListScreen(navController, semester, branch, isMidsem)
         }
 
@@ -68,14 +106,34 @@ fun AppNavigation(navController: NavHostController) {
         }
 
         // ✅ Grid Preview Screen (Slide In)
-        composable("gridPreview", enterTransition = { slideInLeft() }, exitTransition = { slideOutRight() }) {
+        composable(
+            "gridPreview",
+            enterTransition = { slideInLeft() },
+            exitTransition = { slideOutRight() }) {
             GridPreviewScreen(navController, fileViewModel)
         }
-        composable("myL7V3", enterTransition = { slideInLeft() }, exitTransition = { slideOutRight() }) {
+        composable(
+            "myL7V3",
+            enterTransition = { slideInLeft() },
+            exitTransition = { slideOutRight() }) {
             EasterScreen(navController)
         }
-        composable("pdfs", enterTransition = { slideInLeft() }, exitTransition = { slideOutRight() }) {
-            FolderListScreen(navController,fileViewModel,rootPath)
+        composable(
+            "pdfs",
+            enterTransition = { slideInLeft() },
+            exitTransition = { slideOutRight() }) {
+            FolderListScreen(navController, fileViewModel, rootPath)
+        }
+        composable(
+            "login",
+            enterTransition = { slideInLeft() },
+            exitTransition = { slideOutRight() }) {
+            UploaderLoginScreen(navController, userViewModel)
+        }
+
+        // ✅ Signup Screen (Optional)
+        composable("signup", enterTransition = { slideInLeft() }, exitTransition = { slideOutRight() }) {
+            UploaderSignupScreen(navController, userViewModel)
         }
     }
 }

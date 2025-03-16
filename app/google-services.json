@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "870512187514",
+    "project_id": "getpyq",
+    "storage_bucket": "getpyq.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:870512187514:android:9c575fe681052fdd94c3c3",
+        "android_client_info": {
+          "package_name": "com.infomanix.getpyq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-LQyhatEg0a8pEUSXyV3fUb_qV4TNTOk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

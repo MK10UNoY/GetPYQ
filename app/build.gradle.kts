@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -52,6 +53,8 @@ dependencies {
     implementation(libs.protolite.well.known.types)
     implementation(libs.androidx.espresso.core)
     implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.firebase.common.ktx)
+    implementation(libs.firebase.firestore.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -69,8 +72,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.coil.compose)
     implementation(libs.google.accompanist.navigation.animation)
-    implementation (libs.ucrop ) // Crop library
-    implementation (libs.androidx.palette.ktx)  // Image filters (optional)
+    implementation(libs.ucrop) // Crop library
+    implementation(libs.androidx.palette.ktx)  // Image filters (optional)
     implementation(libs.accompanist.systemuicontroller)
     implementation(kotlin("reflect"))
     implementation(libs.androidx.camera.core.v130)
@@ -78,4 +81,11 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle.v130)
     implementation(libs.androidx.camera.view.v130) // Required for PreviewView
     implementation(libs.androidx.material.icons.extended)
+    implementation(libs.google.firebase.storage.ktx)
+    //noinspection GradleDependency
+    implementation(libs.firebase.auth)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.accompanist.navigation.animation.v0332alpha)
 }

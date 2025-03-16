@@ -115,6 +115,46 @@ object PdfUtils {
         return null
     }
 
+    fun compileImagesToPdf4Upload(imageFiles: List<File>, pdfFile: String): File? {
+        if (imageFiles.isEmpty()) return null
+
+        val outputPdf = File(pdfFile)
+        val pdfDocument = PdfDocument()
+
+        try {
+            imageFiles.forEachIndexed { index, file ->
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                    BitmapFactory.decodeFile(file.path, this)
+                    inJustDecodeBounds = false
+                    inSampleSize = calculateInSampleSize(outWidth, outHeight, 800, 1000)
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                }
+                val scaledBitmap = BitmapFactory.decodeFile(file.path, options)
+
+                scaledBitmap?.let {
+                    val pageInfo =
+                        PdfDocument.PageInfo.Builder(it.width, it.height, index + 1).create()
+                    val page = pdfDocument.startPage(pageInfo)
+                    page.canvas.drawBitmap(it, 0f, 0f, null)
+                    pdfDocument.finishPage(page)
+                    it.recycle()
+                }
+            }
+
+            BufferedOutputStream(FileOutputStream(outputPdf)).use { pdfDocument.writeTo(it) }
+
+            return outputPdf // ✅ Return PDF file without deleting it
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            pdfDocument.close()
+        }
+
+        return null
+    }
+
     /**
      * Helper to generate a unique file name*/
     private fun generateUniqueFileName(directory: File, baseName: String): File {
@@ -159,7 +199,8 @@ object PdfUtils {
         }
 
         try {
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", pdfFile)
+            val uri =
+                FileProvider.getUriForFile(context, "${context.packageName}.provider", pdfFile)
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/pdf")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

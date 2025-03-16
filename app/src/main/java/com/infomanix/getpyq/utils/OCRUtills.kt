@@ -41,13 +41,13 @@ object OCRUtils {
         val subjectRegex = Regex("(?i)Subject:\\s*([A-Za-z &]+)")
         val semesterRegex = Regex("\\bSemester[:\\s]+(\\d+)\\b", RegexOption.IGNORE_CASE)
         val examTypeRegex = Regex("(?i)(Mid-Semester|End-Semester|Quiz)")
-        val monthYearRegex = Regex("\\b(January|February|March|April|May|June|July|August|September|October|November|December)\\s*(20\\d{2})\\b")
+        val monthYearRegex = Regex("\\b(January|February|March|April|May|June|July|August|September|October|November|December)\\s*-\\s*(20\\d{2})\\b")
 
         val courseCode = courseCodeRegex.find(text)?.value ?: "UnknownCode"
         val subject = subjectRegex.find(text)?.groupValues?.get(1)?.trim() ?: "UnknownSubject"
 
         // Extract and clean semester (handle cases like "4th")
-        val semester = semesterRegex.find(text)?.groupValues?.get(1)?.replace(Regex("\\D"), "")?.let { "Sem$it" } ?: "UnknownSem"
+        val semester = semesterRegex.find(text)?.groupValues?.get(1)?.replace(Regex("\\D"), "")?.let { "Sem$it" } ?: "Sem[type_here]"
 
         val examType = examTypeRegex.find(text)?.value ?: "Exam"
 

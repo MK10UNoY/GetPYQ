@@ -1,11 +1,16 @@
 package com.infomanix.getpyq.ui.screen
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -65,7 +70,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,26 +84,55 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.infomanix.getpyq.R
+import com.infomanix.getpyq.data.UserPreferences
+import com.infomanix.getpyq.data.UserState
+import com.infomanix.getpyq.ui.viewmodels.UserViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Home(navController: androidx.navigation.NavController) {
+fun Home(navController: NavController, userViewModel: UserViewModel) {
     val semesterFolderNames = (1..8).map { "$it" }
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var isMidsem by rememberSaveable { mutableStateOf(true) }
-
     var selectedBranch by rememberSaveable { mutableStateOf("CS") }
+    val userState = userViewModel.userState.collectAsState().value
+
+// 🎯 Load the user’s name from DataStore using UserPreferences Singleton
+    val context = LocalContext.current
+    val userPreferences = remember { UserPreferences.getInstance(context) }
+
+// ✅ Use collectAsStateWithLifecycle for lifecycle safety
+    val userName by userPreferences.userName.collectAsStateWithLifecycle(initialValue = "Guest")
+
+    /*    val scholarIdFlow =
+            remember { dataStore.data.map { it[stringPreferencesKey("scholarId")] ?: "2411116" } }*/
+
+    // 🎯 Extract Y from ScholarId (e.g., 2XXYXXX)
+    val branches = listOf("CE", "CS", "EE", "EC", "EI", "ME")
+    /*
+        // ✅ Collect the scholar ID value from the flow
+        val scholarId = scholarIdFlow.collectAsState(initial = "").value
+
+        // ✅ Extract the 4th character (index 3) and convert to a digit
+        val branchIndex = scholarId.getOrNull(3)?.digitToIntOrNull()
+
+        // ✅ Ensure branch index stays within 1-6
+        if (branchIndex != null) {
+            selectedBranch = if (branchIndex in 1..6) branches[branchIndex - 1] else "CS"
+        }*/
     // Background Animation
     val infiniteTransition = rememberInfiniteTransition(label = "")
     val color1 by infiniteTransition.animateColor(
@@ -116,15 +152,16 @@ fun Home(navController: androidx.navigation.NavController) {
             repeatMode = RepeatMode.Reverse
         ), label = ""
     )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(brush = Brush.verticalGradient(colors = listOf(color1, color2)))
             .padding(
-                top = 0.dp, // Custom top padding
+                top = 0.dp,
                 bottom = WindowInsets.navigationBars
                     .asPaddingValues()
-                    .calculateBottomPadding() // Only for nav bar
+                    .calculateBottomPadding()
             )
     ) {
         TopAppBar(
@@ -132,11 +169,7 @@ fun Home(navController: androidx.navigation.NavController) {
             navigationIcon = {
                 IconButton(onClick = {
                     scope.launch {
-                        if (drawerState.isOpen) {
-                            drawerState.close()
-                        } else {
-                            drawerState.open()
-                        }
+                        if (drawerState.isOpen) drawerState.close() else drawerState.open()
                     }
                 }) {
                     Icon(
@@ -151,8 +184,6 @@ fun Home(navController: androidx.navigation.NavController) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     var expanded by remember { mutableStateOf(false) }
-                    val branches = listOf("CS", "EC", "EE", "ME", "CE", "EI")
-
                     Box(
                         modifier = Modifier
                             .wrapContentSize()
@@ -186,21 +217,20 @@ fun Home(navController: androidx.navigation.NavController) {
                     Switch(
                         checked = isMidsem,
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFF006400), // Midsem Thumb
-                            checkedTrackColor = Color(0xFFB2DFDB), // Midsem Track (Light Green)
-                            checkedIconColor = Color.White, // Midsem Icon
+                            checkedThumbColor = Color(0xFF006400),
+                            checkedTrackColor = Color(0xFFB2DFDB),
+                            checkedIconColor = Color.White,
                             checkedBorderColor = Color(0xFF1E88E5),
-
-                            uncheckedThumbColor = Color.Red, // Endsem Thumb
-                            uncheckedTrackColor = Color(0xFFFFCDD2), // Endsem Track (Light Red)
-                            uncheckedIconColor = Color.White, // Endsem Icon
+                            uncheckedThumbColor = Color.Red,
+                            uncheckedTrackColor = Color(0xFFFFCDD2),
+                            uncheckedIconColor = Color.White,
                             uncheckedBorderColor = Color(0xFF1E88E5)
                         ),
                         onCheckedChange = { isMidsem = it },
                         thumbContent = {
                             Text(
                                 text = if (isMidsem) "M" else "E",
-                                color = Color.White, // Text color
+                                color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                                 modifier = Modifier.padding(4.dp, 0.dp)
@@ -215,7 +245,9 @@ fun Home(navController: androidx.navigation.NavController) {
             drawerContent = {
                 DrawerContent2(
                     onItemClick = { scope.launch { drawerState.close() } },
-                    navController = navController
+                    navController = navController,
+                    userViewModel = userViewModel,
+                    userState = userState,
                 )
             }
         ) {
@@ -225,7 +257,24 @@ fun Home(navController: androidx.navigation.NavController) {
                     .padding(8.dp, 10.dp, 8.dp, 2.dp)
             ) {
                 Column {
-                    val selectedBranchState = remember { mutableStateOf("CS") }
+                    when (userState) {
+                        is UserState.Guest -> {
+                            // ✅ Show "Welcome, {Username}!"
+                            Text(
+                                "Welcome, $userName!",
+                                style = MaterialTheme.typography.headlineMedium
+                            )
+                        }
+
+                        is UserState.Uploader -> {
+                            val uploaderName = (userState as UserState.Uploader).username
+                            Text(
+                                "Welcome, $userName you are now an Uploader",
+                                style = MaterialTheme.typography.headlineMedium
+                            )
+                            Text("Email: $uploaderName")
+                        }
+                    }
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         modifier = Modifier.fillMaxSize(),
@@ -243,26 +292,37 @@ fun Home(navController: androidx.navigation.NavController) {
                         }
                     }
                 }
-                // Floating Action Button
-                FloatingActionButton(
-                    onClick = { navController.navigate("camera") },
-                    containerColor = Color(0xFF42A5F5),
-                    contentColor = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(20.dp)
-                ) {
-                    Icon(painterResource(R.drawable.ic_scan), contentDescription = "Scan")
-                }
-                FloatingActionButton(
-                    onClick = { navController.navigate("pdfs") },
-                    containerColor = Color(0xFF2E5500),
-                    contentColor = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(20.dp,100.dp)
-                ) {
-                    Icon(Icons.Default.Update, contentDescription = "Scan")
+                if (userState is UserState.Uploader) {
+                    this@Column.AnimatedVisibility(
+                        visible = userState is UserState.Uploader,
+                        enter = fadeIn() + scaleIn(),
+                        exit = fadeOut() + scaleOut()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            FloatingActionButton(
+                                onClick = { navController.navigate("camera") },
+                                containerColor = Color(0xFF42A5F5),
+                                contentColor = Color.White
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.ic_scan),
+                                    contentDescription = "Scan"
+                                )
+                            }
+                            FloatingActionButton(
+                                onClick = { navController.navigate("pdfs") },
+                                containerColor = Color(0xFF2E5500),
+                                contentColor = Color.White
+                            ) {
+                                Icon(Icons.Default.Update, contentDescription = "Upload PDF")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -272,7 +332,7 @@ fun Home(navController: androidx.navigation.NavController) {
 @Composable
 fun FolderItem(
     semester: String,
-    navController: androidx.navigation.NavController,
+    navController: NavController,
     isMidsem: Boolean,
     selectedBranch: String,
 ) {
@@ -305,11 +365,13 @@ fun FolderItem(
 }
 
 @Composable
-fun DrawerContent2(onItemClick: () -> Unit, navController: NavController) {
+fun DrawerContent2(onItemClick: () -> Unit, navController: NavController,userViewModel: UserViewModel, userState: UserState) {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val topBarHeight = 0.dp
     val sidePadding = 4.dp
-    var clickCount by remember { mutableStateOf(0) }
+    var clickCount by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+
 
     Column(
         modifier = Modifier
@@ -349,11 +411,21 @@ fun DrawerContent2(onItemClick: () -> Unit, navController: NavController) {
                 modifier = Modifier.clickable { /* Handle Click */ }
             )
             Spacer(modifier = Modifier.height(10.dp))
+            val buttonText = if (userState is UserState.Uploader) "Logout" else "Login"
+            val buttonColor = if (userState is UserState.Uploader) Color.Gray else Color.Red
+
             Button(
-                onClick = { /* Handle Buy Storage */ },
+                onClick = {
+                    if (userState is UserState.Uploader) {
+                        userViewModel.logout(context = context) // Implement logout logic
+                        navController.navigate("home") { popUpTo("home") { inclusive = true } }
+                    } else {
+                        navController.navigate("login")
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
             ) {
-                Text("Login", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text(buttonText, style = MaterialTheme.typography.titleMedium, color = Color.White)
             }
         }
 
@@ -378,7 +450,7 @@ fun DrawerContent2(onItemClick: () -> Unit, navController: NavController) {
         Spacer(modifier = Modifier.weight(1f))
 
         // App Version
-        var clickCount by remember { mutableStateOf(0) }
+
         var firstClickTime by remember { mutableStateOf<Long?>(null) }
         val coroutineScope = rememberCoroutineScope()
 
@@ -433,5 +505,6 @@ fun DrawerItem(title: String, icon: ImageVector, onClick: () -> Unit) {
 @Composable
 fun HomePreview() {
     val navController = rememberNavController()
-    Home(navController)
+    val userViewModel = UserViewModel()
+    Home(navController, userViewModel)
 }

@@ -9,8 +9,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.infomanix.getpyq.ui.navigation.AppNavigation
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -18,13 +20,14 @@ class MainActivity : ComponentActivity() {
             val systemUiController = rememberSystemUiController()
             SideEffect {
                 systemUiController.setSystemBarsColor(
-                    color = Color(0xFF2D3139), // Match Drawer Top Color
-                    darkIcons = false // Use `true` for light-colored status bar
+                    color = Color(0xFF2D3139),
+                    darkIcons = false
                 )
             }
+
             val navController = rememberNavController()
 
-            AppNavigation(navController)
-                }
-            }
+            AppNavigation(navController) // Pass currentUser for navigation logic
         }
+    }
+}
