@@ -16,7 +16,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://www.jitpack.io") }
+        maven("https://maven.pkg.jetbrains.space/public/p/ktor/eap") // Needed for Ktor in some cases
+        maven("https://jitpack.io") // Ensure JitPack is included
+
     }
 }
 
