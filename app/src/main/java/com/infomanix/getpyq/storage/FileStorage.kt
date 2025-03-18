@@ -6,6 +6,9 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Log
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -17,6 +20,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 object FileStorage {
     private const val CLOUDINARY_URL =
@@ -99,61 +105,6 @@ object FileStorage {
             }
         }
         return filePath
-    }
-
-    /**
-     * Upload to cloudinary function
-     * */
-    fun uploadToCloudinary3(
-        fileUri: Uri,
-        onSuccess: (String) -> Unit,
-        onFailure: (Exception) -> Unit,
-    ) {
-        Log.d("Upload", "Reached FileStorage function")
-        val file = File(fileUri.path ?: return)
-        val requestBody = MultipartBody.Builder()
-            .setType(MultipartBody.FORM)
-            .addFormDataPart(
-                "file",
-                file.name,
-                file.asRequestBody("application/pdf".toMediaTypeOrNull())
-            )
-            .addFormDataPart("upload_preset", UPLOAD_PRESET) // Required for unsigned uploads
-            .build()
-
-        val request = Request.Builder()
-            .url(CLOUDINARY_URL) // Replace with proper API URL
-            .post(requestBody)
-            .build()
-        Log.d("Upload", "Checkpoint 1")
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                Log.d("Upload", "Checkpoint 2")
-                val response = client.newCall(request).execute()
-                Log.d("Upload", "Checkpoint 3")
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string() ?: ""
-                    Log.d("Upload", "Success: $responseBody")
-
-                    val jsonResponse = JSONObject(responseBody)
-                    val fileUrl = jsonResponse.getString("secure_url") // ✅ Get Cloudinary file URL
-
-                    withContext(Dispatchers.Main) {
-                        onSuccess(fileUrl)
-                    }
-                } else {
-                    Log.e("Upload", "Failed: ${response.code}")
-                    withContext(Dispatchers.Main) {
-                        onFailure(Exception("Upload failed with code: ${response.code}"))
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("Upload", "Error: ${e.message}", e)
-                withContext(Dispatchers.Main) {
-                    onFailure(e)
-                }
-            }
-        }
     }
 
     fun getRealPathFromUri2(context: Context, uri: Uri): String? {
@@ -246,6 +197,120 @@ object FileStorage {
         } catch (e: Exception) {
             Log.e("Upload", "❌ Error preparing file: ${e.message}", e)
             onFailure(e)
+        }
+    }
+
+    // 🔹 STORE UPLOAD METADATA IN SUPABASE
+    private fun storeUploadRecord(
+        supabaseClient: SupabaseClient,
+        filePath: String,
+        uploaderEmail: String,
+        cloudUrl: String,
+        cloudinaryId: String,
+        uploadSem: String,
+        uploadSubject: String,
+    ) {
+        val currentDate = Date()
+        val month = SimpleDateFormat("MMMM", Locale.getDefault()).format(currentDate) // e.g., March
+        val year = SimpleDateFormat("yyyy", Locale.getDefault()).format(currentDate) // e.g., 2025
+        val time =
+            SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(currentDate) // e.g., 14:30:55
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val result = supabaseClient.from("uploadTrackRegister").insert(
+                    mapOf(
+                        "filepath" to filePath,
+                        "uploaderemail" to uploaderEmail,
+                        "cloudurl" to cloudUrl,
+                        "uploadsem" to uploadSem,
+                        "uploadsubject" to uploadSubject,
+                        "uploadmonth" to month,
+                        "uploadyear" to year,
+                        "uploadtime" to time
+                    )
+                )
+                Log.d("UploadDB", "✅ File record stored in Supabase: $result")
+            } catch (e: Exception) {
+                Log.e("UploadDB", "❌ Error storing upload record: ${e.message}", e)
+            }
+        }
+    }
+
+    // 🔹 FETCH FILES FROM SUPABASE FOR A SPECIFIC FOLDER
+    fun fetchUploadedFiles(
+        supabaseClient: SupabaseClient,
+        uploadSem: String,
+        uploadSubject: String,
+        page: Int = 1, // ✅ Pagination starts from page 1
+        limit: Int = 20, // ✅ Fetch 20 records per request
+        onResult: (List<String>) -> Unit,
+        onFailure: (Exception) -> Unit,
+    ) {
+        val offset = (page - 1) * limit // ✅ Calculate offset for pagination
+        /**
+         *  Apply pagination in future
+         */
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val result = supabaseClient.from("uploadTrackRegister")
+                    .select(Columns.list("cloudurl")) {
+                        filter {
+                            eq("uploadsem", uploadSem)
+                            eq("uploadsubject", uploadSubject)
+                        }
+                        range(
+                            offset.toLong(), (offset + limit -
+                                    1
+                                    ).toLong(),
+                            null
+                        )//Null works here because it doesn't use an external table that's why
+                    }.decodeList<Map<String, Any>>() // ✅ Ensure result is properly parsed
+
+                val fileUrls =
+                    result.mapNotNull { it["cloudurl"] as? String } // ✅ Safely extract URLs
+
+                withContext(Dispatchers.Main) { onResult(fileUrls) } // ✅ Pass result to UI thread
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onFailure(e) } // ✅ Handle errors properly
+            }
+        }
+
+    }
+
+    // 🔹 DELETE FILE FROM CLOUDINARY & SUPABASE
+    fun deleteFile(
+        supabaseClient: SupabaseClient,
+        publicId: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit,
+    ) {
+        val deleteUrl = "https://api.cloudinary.com/v1_1/dyeya9x0b/image/destroy"
+        val requestBody = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("public_id", publicId)
+            .addFormDataPart("upload_preset", UPLOAD_PRESET)
+            .build()
+
+        val request = Request.Builder()
+            .url(deleteUrl)
+            .post(requestBody)
+            .build()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    // ✅ Delete entry from Supabase
+                    supabaseClient.from("uploadTrackRegister")
+                        .delete() { filter { eq("cloudurl", publicId) } }
+                    withContext(Dispatchers.Main) { onSuccess() }
+                } else {
+                    withContext(Dispatchers.Main) { onFailure(Exception("Deletion failed")) }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onFailure(e) }
+            }
         }
     }
 }

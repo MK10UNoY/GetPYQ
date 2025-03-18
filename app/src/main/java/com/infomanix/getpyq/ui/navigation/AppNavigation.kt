@@ -27,12 +27,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.infomanix.getpyq.data.UserPreferences
+import com.infomanix.getpyq.ui.screen.PdfListScreen
 import com.infomanix.getpyq.ui.screen.SplashScreen
+import com.infomanix.getpyq.ui.screen.TestScreen
 import com.infomanix.getpyq.ui.screen.UploaderLoginScreen
 import com.infomanix.getpyq.ui.screen.UploaderSignupScreen
 import com.infomanix.getpyq.ui.viewmodels.UserViewModel
 import com.infomanix.getpyq.utils.AuthManagerUtils
-import kotlinx.coroutines.flow.first
+
 fun getAppPicturesPath(context: Context): String {
     return context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)?.absolutePath ?: ""
 }
@@ -58,6 +60,7 @@ fun AppNavigation(navController: NavHostController) {
     NavHost(
         navController = navController,
         startDestination = if (hasSeenSplash) "home" else "splash"
+        //startDestination = "test"
     ) {
         // ✅ Splash screen for first-time setup
         composable(
@@ -72,6 +75,7 @@ fun AppNavigation(navController: NavHostController) {
             enterTransition = { slideInBottom() },
             exitTransition = { slideOutTop() }) { Home(navController,userViewModel) }
 
+        composable("test", enterTransition = { slideInBottom() }, exitTransition = { slideOutTop() }) { TestScreen() }
         // ✅ Camera Screen (Slide + Fade)
         composable(
             "camera",
@@ -96,7 +100,12 @@ fun AppNavigation(navController: NavHostController) {
                 backStackEntry.arguments?.getString("mode")?.toBooleanStrictOrNull() ?: false
             SubjectListScreen(navController, semester, branch, isMidsem)
         }
-
+        composable("pdfList/{semester}/{subject}/{examType}") { backStackEntry ->
+            val semester = backStackEntry.arguments?.getString("semester") ?: "1"
+            val subject = backStackEntry.arguments?.getString("subject") ?: "Math"
+            val examType = backStackEntry.arguments?.getString("examType") ?: "midsem"
+            PdfListScreen(navController = navController,semester = semester,subject = subject, examType =  examType)
+        }
         // ✅ Edit Screen (Pop + Slide)
         composable("edit",
             enterTransition = { slideInRight() }, exitTransition = { slideOutLeft() }
@@ -122,7 +131,7 @@ fun AppNavigation(navController: NavHostController) {
             "pdfs",
             enterTransition = { slideInLeft() },
             exitTransition = { slideOutRight() }) {
-            FolderListScreen(navController, fileViewModel, rootPath)
+            FolderListScreen(navController, fileViewModel, userViewModel, rootPath)
         }
         composable(
             "login",

@@ -1,5 +1,6 @@
 package com.infomanix.getpyq.ui.screen
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -17,6 +18,7 @@ import com.infomanix.getpyq.utils.AuthManagerUtils
 
 @Composable
 fun UploaderLoginScreen(navController: NavHostController, userViewModel: UserViewModel) {
+    Log.d("UploadTracking", "UploaderLoginScreen LaunchedEffect")
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -55,7 +57,11 @@ fun UploaderLoginScreen(navController: NavHostController, userViewModel: UserVie
                     isLoading = false
                     if (success) {
                         val scholarId = AuthManagerUtils.loadScholarId(context)
-                        userViewModel.setUserState(UserState.Uploader(email, scholarId))
+                        val userName = AuthManagerUtils.loadUserName(context)
+                        userViewModel.setUserState(UserState.Uploader(
+                            userName,
+                            email, scholarId
+                        ))
                         navController.navigate("home") {
                             popUpTo("login") { inclusive = true }
                         }
@@ -85,6 +91,7 @@ fun UploaderSignupScreen(navController: NavHostController, userViewModel: UserVi
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var scholarId by remember { mutableStateOf("") }
+    val userName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -126,7 +133,8 @@ fun UploaderSignupScreen(navController: NavHostController, userViewModel: UserVi
                 ) { success,message ->
                     isLoading = false
                     if (success) {
-                        userViewModel.setUserState(UserState.Uploader(email, scholarId))
+                        val userNamer = AuthManagerUtils.loadUserName(context)
+                        userViewModel.setUserState(UserState.Uploader(userName,email, scholarId))
                         navController.navigate("home") {
                             popUpTo("signup") { inclusive = true }
                         }

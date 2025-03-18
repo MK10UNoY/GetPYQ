@@ -43,9 +43,8 @@ object AuthManagerUtils {
                     val userType = if (email.contains("uploader")) "uploader" else "guest"
 
                     // ✅ Save the user data directly to UserPreferences (no Firestore involved)
-                    saveUserType(
+                    updateUserType(
                         context,
-                        scholarId = scholarId,
                         userEmail = email,
                         userType = userType
                     )
@@ -111,9 +110,8 @@ object AuthManagerUtils {
                             UserPreferences.getInstance(context).scholarId.first() ?: "unknown"
                         }
                         // Save user info with the saved scholarId
-                        saveUserType(
+                        updateUserType(
                             context,
-                            scholarId = savedScholarId,
                             userEmail = email,
                             userType = "uploader"
                         )
@@ -163,16 +161,14 @@ object AuthManagerUtils {
     }
 
     // 🌟 Save user type and scholarId using UserPreferences
-    private fun saveUserType(
+    private fun updateUserType(
         context: Context,
-        scholarId: String,
         userEmail: String,
         userType: String,
     ) {
         runBlocking {
-            UserPreferences.getInstance(context).saveUserInfo(
+            UserPreferences.getInstance(context).updateUserInfo(
                 email = userEmail,
-                scholarId = scholarId,
                 userType = userType
             )
         }
@@ -189,6 +185,11 @@ object AuthManagerUtils {
     fun loadScholarId(context: Context): String {
         return runBlocking {
             UserPreferences.getInstance(context).scholarId.first() ?: ""
+        }
+    }
+    fun loadUserName(context: Context): String {
+        return runBlocking {
+            UserPreferences.getInstance(context).userName.first() ?: ""
         }
     }
 }

@@ -1,6 +1,6 @@
 package com.infomanix.getpyq
-
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -9,8 +9,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.infomanix.getpyq.ui.navigation.AppNavigation
-import com.google.firebase.auth.FirebaseAuth
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint // ✅ Add this annotation
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,6 +24,9 @@ class MainActivity : ComponentActivity() {
                     color = Color(0xFF2D3139),
                     darkIcons = false
                 )
+            }
+            Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
+                Log.e("AppCrash", "🔥 Uncaught exception", throwable)
             }
 
             val navController = rememberNavController()

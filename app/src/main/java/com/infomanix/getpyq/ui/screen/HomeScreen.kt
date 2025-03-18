@@ -1,5 +1,6 @@
 package com.infomanix.getpyq.ui.screen
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.LinearEasing
@@ -70,6 +71,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -116,9 +118,10 @@ fun Home(navController: NavController, userViewModel: UserViewModel) {
 
 // ✅ Use collectAsStateWithLifecycle for lifecycle safety
     val userName by userPreferences.userName.collectAsStateWithLifecycle(initialValue = "Guest")
-
-    /*    val scholarIdFlow =
-            remember { dataStore.data.map { it[stringPreferencesKey("scholarId")] ?: "2411116" } }*/
+    val scholarId by userPreferences.scholarId.collectAsStateWithLifecycle(initialValue = "")
+    LaunchedEffect(userName) {
+        Log.d("user", "Collected userName: $userName with Sch.ID as $scholarId")
+    }
 
     // 🎯 Extract Y from ScholarId (e.g., 2XXYXXX)
     val branches = listOf("CE", "CS", "EE", "EC", "EI", "ME")
@@ -257,19 +260,20 @@ fun Home(navController: NavController, userViewModel: UserViewModel) {
                     .padding(8.dp, 10.dp, 8.dp, 2.dp)
             ) {
                 Column {
+                    val name = userName?: "Guest"
                     when (userState) {
                         is UserState.Guest -> {
                             // ✅ Show "Welcome, {Username}!"
                             Text(
-                                "Welcome, $userName!",
+                                "Welcome, $name",
                                 style = MaterialTheme.typography.headlineMedium
                             )
                         }
 
                         is UserState.Uploader -> {
-                            val uploaderName = (userState as UserState.Uploader).username
+                            val uploaderName = userState.username
                             Text(
-                                "Welcome, $userName you are now an Uploader",
+                                "Welcome, $name you are now an Uploader",
                                 style = MaterialTheme.typography.headlineMedium
                             )
                             Text("Email: $uploaderName")

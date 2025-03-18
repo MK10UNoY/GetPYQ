@@ -9,9 +9,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import android.content.Context
+import android.util.Log
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.infomanix.getpyq.data.UserPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -43,14 +46,20 @@ fun SplashScreen(navController: NavHostController, context: Context) {
         errorMessage?.let {
             Text(it, color = Color.Red, modifier = Modifier.padding(8.dp))
         }
-
+        val usernawn by userPreferences.userName.collectAsStateWithLifecycle(initialValue = "Guest")
         Button(onClick = {
             if (name.isNotBlank() && scholarId.isNotBlank()) {
+                Log.d("user","$name $scholarId")
                 // Start a coroutine to save data and mark splash as seen
                 CoroutineScope(Dispatchers.IO).launch {
-                    userPreferences.saveUserInfo(name, scholarId,userType)
+                    userPreferences.saveUserInfo(
+                        name = name, email = "notanupl0ader@vella.yes", scholarId = scholarId,
+                        userType = userType
+                    )
                     userPreferences.setSplashSeen()
-
+                    //Forced update on the name
+                    val updatedName = userPreferences.userName.firstOrNull() ?: "Guest"
+                    Log.d("user","$name is now set in Prefs as $usernawn but after force update it is now $updatedName $scholarId $userType")
                     // Navigate back to main UI thread to switch screens
                     withContext(Dispatchers.Main) {
                         navController.navigate("home") {

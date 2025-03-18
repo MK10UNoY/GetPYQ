@@ -69,7 +69,9 @@ fun SubjectItem(subject: String, navController: NavController, category: String,
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .clickable { navController.navigate("$category/${if (isMidsem) "midsem" else "endsem"}/$subject") },
+            .clickable {
+                navController.navigate("pdfList/$category/$subject/${if (isMidsem) "midsem" else "endsem"}")
+            },
         shape = MaterialTheme.shapes.medium,
         elevation = CardDefaults.cardElevation(6.dp)
     ) {
@@ -89,3 +91,4 @@ fun SubjectItem(subject: String, navController: NavController, category: String,
         }
     }
 }
+

@@ -5,9 +5,9 @@ import android.util.Log
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 // Singleton DataStore tied to app context
@@ -31,10 +31,17 @@ class UserPreferences private constructor(context: Context) {
     val userType: Flow<String?> = dataStore.data.map { it[userTypeKey] }
     val userEmail: Flow<String?> = dataStore.data.map { it[userEmailKey] }
 
-    suspend fun saveUserInfo(email: String, scholarId: String, userType: String) {
+    suspend fun saveUserInfo(name: String, email: String, scholarId: String, userType: String) {
         dataStore.edit { prefs ->
+            prefs[userNameKey] = name
             prefs[userEmailKey] = email
             prefs[scholarIdKey] = scholarId
+            prefs[userTypeKey] = userType
+        }
+    }
+    suspend fun updateUserInfo(email: String, userType: String) {
+        dataStore.edit { prefs ->
+            prefs[userEmailKey] = email
             prefs[userTypeKey] = userType
         }
     }
@@ -44,7 +51,7 @@ class UserPreferences private constructor(context: Context) {
         dataStore.data.collect { preferences ->
             // Convert the Preferences object to a map and log all the keys and values
             preferences.asMap().forEach { (key, value) ->
-                Log.d("UsrPrefs", "Key: $key, Value: $value")
+                Log.d("user", "Key: $key, Value: $value")
             }
         }
 

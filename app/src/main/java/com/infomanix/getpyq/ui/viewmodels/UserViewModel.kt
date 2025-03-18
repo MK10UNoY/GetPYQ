@@ -23,10 +23,12 @@ class UserViewModel : ViewModel() {
         viewModelScope.launch {
             val userType = AuthManagerUtils.loadUserType(context)
             val scholarId = AuthManagerUtils.loadScholarId(context)
+            val username = AuthManagerUtils.loadUserName(context)
             if (AuthManagerUtils.isLoggedIn() && userType == "uploader") {
                 _userState.value = UserState.Uploader(
+                    username = username,
                     AuthManagerUtils.getCurrentUserEmail() ?: "",
-                    scholarId
+                    scholarId = scholarId
                 )
             } else {
                 _userState.value = UserState.Guest
