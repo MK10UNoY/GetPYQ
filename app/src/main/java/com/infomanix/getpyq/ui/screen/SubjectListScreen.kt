@@ -1,5 +1,6 @@
 package com.infomanix.getpyq.ui.screen
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.infomanix.getpyq.R
 import com.infomanix.getpyq.utils.SubjectDataUtils
+import okhttp3.internal.trimSubstring
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +59,7 @@ fun SubjectListScreen(navController: NavController, category: String,branch: Str
                 .padding(16.dp)
         ) {
             items(subjects) { subject ->
-                SubjectItem(subject.toString(), navController, category, isMidsem)
+                SubjectItem(subject, navController, category, isMidsem)
             }
         }
     }

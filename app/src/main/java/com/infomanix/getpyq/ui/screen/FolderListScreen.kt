@@ -24,10 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.WorkHistory
@@ -52,7 +50,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,11 +68,13 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.infomanix.getpyq.data.UploadMetadata
 import com.infomanix.getpyq.data.UserState
 import com.infomanix.getpyq.storage.FileStorage
 import com.infomanix.getpyq.ui.viewmodels.FileViewModel
 import com.infomanix.getpyq.ui.viewmodels.UploadTrackingViewModel
 import com.infomanix.getpyq.ui.viewmodels.UserViewModel
+import com.infomanix.getpyq.utils.AuthManagerUtils
 import com.infomanix.getpyq.utils.PdfUtils
 import kotlinx.coroutines.launch
 import java.io.File
@@ -292,7 +291,12 @@ fun UploadedPdfItem(fileName: String) {
 
 @SuppressLint("SimpleDateFormat")
 @Composable
-fun FolderItem(folder: File, onClick: () -> Unit, onDelete: (File) -> Unit) {
+fun FolderItem(
+    folder: File,
+    onClick: () -> Unit,
+    onDelete: (File) -> Unit,
+    uploadTrackingViewModel: UploadTrackingViewModel = hiltViewModel(),
+) {
     val context = LocalContext.current
     val firstImage =
         folder.listFiles()?.firstOrNull { it.extension in listOf("jpg", "jpeg", "png") }
@@ -353,12 +357,17 @@ fun FolderItem(folder: File, onClick: () -> Unit, onDelete: (File) -> Unit) {
                                 if (uploadDone) {
                                     showReuploadDialog = true
                                 } else {
-                                    startUpload(folder, context, onProgress = { progress ->
-                                        uploadProgress = progress
-                                    }, onComplete = {
-                                        isUploading = false
-                                        uploadDone = true
-                                    })
+                                    startUpload(
+                                        folder,
+                                        context,
+                                        uploadTrackingViewModel = uploadTrackingViewModel,
+                                        onProgress = { progress ->
+                                            uploadProgress = progress
+                                        },
+                                        onComplete = {
+                                            isUploading = false
+                                            uploadDone = true
+                                        })
                                     isUploading = true
                                 }
                             },
@@ -407,7 +416,7 @@ fun FolderItem(folder: File, onClick: () -> Unit, onDelete: (File) -> Unit) {
                     }, onComplete = {
                         isUploading = false
                         uploadDone = true
-                    })
+                    }, uploadTrackingViewModel)
                 }) {
                     Text("Yes")
                 }
@@ -421,7 +430,13 @@ fun FolderItem(folder: File, onClick: () -> Unit, onDelete: (File) -> Unit) {
     }
 }
 
-fun startUpload(folder: File, context: Context, onProgress: (Int) -> Unit, onComplete: () -> Unit) {
+fun startUpload(
+    folder: File,
+    context: Context,
+    onProgress: (Int) -> Unit,
+    onComplete: () -> Unit,
+    uploadTrackingViewModel: UploadTrackingViewModel,
+) {
     val folderNameParts = folder.name.split("_")
 
     // Ensure correct folder name format
@@ -430,108 +445,160 @@ fun startUpload(folder: File, context: Context, onProgress: (Int) -> Unit, onCom
         return
     }
 
-    val (courseCode, subject, semester, examType, monthYear) = folderNameParts
+    val courseCode = folderNameParts[0] // ✅ Extract course code (e.g., "EE210")
+    val subject = folderNameParts[1] // ✅ Extract subject name (e.g., "Microprocessors")
+    val semester =
+        extractSemesterNumber(folderNameParts[2]) // ✅ Extract semester number (e.g., "Sem4" -> 4)
+    val examType = folderNameParts[3] // ✅ Extract exam type (e.g., "Mid-Semester")
 
-    // Ensure folder is not empty
-    if (folder.listFiles().isNullOrEmpty()) {
-        Log.e("Upload", "Folder is empty: ${folder.absolutePath}")
-        return
-    }
+    val monthYearParts = folderNameParts[4].split("-") // ✅ Extract month and year
+    val uploadMonth = mapMonthToNumber(monthYearParts[0]) // ✅ Convert "March" -> 3
+    val uploadYear = monthYearParts[1] // ✅ Extract year (e.g., "2025")
+
+    val uploadTimestamp =
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(System.currentTimeMillis()) // ✅ Current timestamp
 
     uploadPdfToCloudinary(
-        folder, courseCode, subject, semester, examType, monthYear,
-        onProgress = onProgress,  // ✅ Directly pass the function reference
+        fileName= folder.name,
+        folder = folder, courseCode = courseCode, subject = subject,
+        semester = semester, examType = examType, monthYear = uploadMonth, year = uploadYear,
+        onProgress = onProgress,
         context = context,
-        onComplete = onComplete   // ✅ Directly pass the function reference
+        onComplete = onComplete,
+        uploadTrackingViewModel = uploadTrackingViewModel
     )
 }
 
+fun mapMonthToNumber(month: String): Int {
+    return when (month.lowercase()) {
+        "january" -> 1
+        "february" -> 2
+        "march" -> 3
+        "april" -> 4
+        "may" -> 5
+        "june" -> 6
+        "july" -> 7
+        "august" -> 8
+        "september" -> 9
+        "october" -> 10
+        "november" -> 11
+        "december" -> 12
+        else -> 0 // Default case
+    }
+}
+
 fun uploadPdfToCloudinary(
+    fileName: String,
     folder: File,
     courseCode: String,
     subject: String,
-    semester: String,
+    semester: Int,
     examType: String,
-    monthYear: String,
+    monthYear: Int,
+    year: String,
+    uploadTrackingViewModel: UploadTrackingViewModel,
     onProgress: (Int) -> Unit,
     context: Context,
     onComplete: () -> Unit,
 ) {
     val images =
-        folder.listFiles()?.filter { it.extension in listOf("jpg", "jpeg", "png") } ?: return
+        folder.listFiles()?.filter { it.extension in listOf("jpg", "jpeg", "png") } ?: emptyList()
+
     if (images.isEmpty()) {
-        Log.e("Upload", "No images found to compile into a PDF")
-        onComplete() // Call onComplete even if there are no images
+        Log.e("Upload", "❌ No images found to compile into a PDF")
+        onComplete() // Ensure onComplete is always called
         return
     }
 
-    val folderName = "${courseCode}_${subject.replace(" ", "")}_${semester}_${examType}_$monthYear"
-    val pdfFile = File(folder, "$folderName.pdf")
+    val pdfFile = File(folder, "$fileName.pdf")
+
+    // ✅ Convert images to PDF
     PdfUtils.compileImagesToPdf4Upload(images, pdfFile.toString())
 
-    val fileUri = Uri.fromFile(pdfFile)
     if (!pdfFile.exists()) {
-        Log.e("Upload", "❌ File does not exist at path: ${pdfFile.absolutePath}")
+        Log.e("Upload", "❌ PDF creation failed at path: ${pdfFile.absolutePath}")
         onComplete() // Ensure onComplete is called even if PDF creation fails
         return
     }
 
-    Log.d("Upload", "✅ Resolved file path: ${pdfFile.absolutePath}")
-    Log.d("Upload", "File URI: $fileUri")
-    Log.d("Upload", "FileStorage function called")
+    val fileUri = Uri.fromFile(pdfFile)
+    Log.d("Upload", "✅ File ready for upload: ${pdfFile.absolutePath}")
 
-    // ✅ Pass Uri instead of realPath
+    // ✅ Upload to Cloudinary
     FileStorage.uploadToCloudinary2(
         fileUri = fileUri,
         onProgress = { progress -> onProgress(progress) }, // 🔹 Update UI with progress
         onSuccess = { fileUrl ->
+            // ✅ Save metadata to Supabase
+            val uploaderEmail = AuthManagerUtils.getCurrentUserEmail().toString()
             saveFileMetadata(
-                semester, subject, pdfFile.name, fileUrl,
+                semester,
+                courseCode,
+                pdfFile.name,
+                monthYear.toString(),
+                year,
+                fileUrl,
+                uploaderEmail,
+                uploadTrackingViewModel = uploadTrackingViewModel, // ✅ Pass uploader email
                 onSuccess = {
-                    Log.d("Upload", "PDF metadata saved successfully")
+                    Log.d("Upload", "✅ PDF metadata saved successfully in Supabase")
                     pdfFile.delete() // ✅ Delete local PDF after upload
-                    onComplete() // ✅ Call onComplete after successful upload
+                    onComplete() // ✅ Notify completion
                 },
                 onFailure = { e ->
-                    Log.e("Upload", "Error saving metadata", e)
+                    Log.e("Upload", "❌ Error saving metadata to Supabase", e)
                     onComplete() // ✅ Ensure onComplete runs even if metadata saving fails
                 }
             )
         },
         onFailure = { e ->
-            Log.e("Upload", "Cloudinary Upload failed", e)
+            Log.e("Upload", "❌ Cloudinary Upload failed", e)
             onComplete() // ✅ Ensure onComplete runs even if upload fails
         },
         context = context
     )
 }
 
-
+@SuppressLint("SimpleDateFormat")
 fun saveFileMetadata(
-    semester: String,
-    subject: String,
+    semester: Int,
+    subjectcode: String,
     name: String,
+    month: String,
+    year: String,
     fileUrl: String,
+    uploaderEmail: String, // ✅ Add uploader email
+    uploadTrackingViewModel: UploadTrackingViewModel, // ✅ Inject ViewModel
     onSuccess: () -> Unit,
     onFailure: (Exception) -> Unit,
 ) {
     try {
-        // Simulate saving metadata (Replace with actual DB implementation)
-        val metadata = mapOf(
-            "semester" to semester,
-            "subject" to subject,
-            "name" to name,
-            "fileUrl" to fileUrl,
-            "timestamp" to System.currentTimeMillis()
+        val uploadTimestamp =
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(System.currentTimeMillis()) // ✅ Timestamp
+        val metadata = UploadMetadata(
+            filepath = name, // ✅ Store the PDF name
+            uploaderemail = uploaderEmail, // ✅ Store uploader's email
+            cloudurl = fileUrl, // ✅ Cloudinary file URL
+            uploadsem = semester, // ✅ Convert semester to Int
+            uploadsubject = subjectcode, // ✅ Subject name
+            uploadmonth = month,// ✅ Extract current month
+            uploadyear = year,
+            uploadtime = uploadTimestamp
         )
+        Log.d("Upload", "✅ File metadata: $metadata")
+        // ✅ Insert metadata into Supabase
+        uploadTrackingViewModel.insertUpload(metadata)
 
-        // TODO: Save 'metadata' to database (e.g., Firestore, SQLite)
-        println("File metadata saved: $metadata")
-
-        onSuccess() // Notify success
+        Log.d("Upload", "✅ File metadata saved successfully in Supabase: $metadata")
+        onSuccess()
     } catch (e: Exception) {
-        onFailure(e) // Handle failure
+        Log.e("Upload", "❌ Error saving metadata to Supabase", e)
+        onFailure(e)
     }
+}
+
+fun extractSemesterNumber(semester: String): Int {
+    return semester.filter { it.isDigit() }.toIntOrNull() ?: 0
 }
 
 fun getPdfs(rootPath: String): List<File> {

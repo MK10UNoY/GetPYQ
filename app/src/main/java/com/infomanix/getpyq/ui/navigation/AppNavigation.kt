@@ -20,6 +20,7 @@ import com.infomanix.getpyq.ui.screen.GridPreviewScreen
 import com.infomanix.getpyq.ui.screen.SubjectListScreen
 import com.infomanix.getpyq.ui.viewmodels.FileViewModel
 import android.content.Context
+import android.net.Uri
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -28,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.infomanix.getpyq.data.UserPreferences
 import com.infomanix.getpyq.ui.screen.PdfListScreen
+import com.infomanix.getpyq.ui.screen.PdfViewerScreen
 import com.infomanix.getpyq.ui.screen.SplashScreen
 import com.infomanix.getpyq.ui.screen.TestScreen
 import com.infomanix.getpyq.ui.screen.UploaderLoginScreen
@@ -102,9 +104,11 @@ fun AppNavigation(navController: NavHostController) {
         }
         composable("pdfList/{semester}/{subject}/{examType}") { backStackEntry ->
             val semester = backStackEntry.arguments?.getString("semester") ?: "1"
-            val subject = backStackEntry.arguments?.getString("subject") ?: "Math"
+            val subject = backStackEntry.arguments?.getString("subject") ?: "EE101"
+            val regex = Regex("""([A-Z]{2}\s?\d{3})""") // Matches codes like "CS 209" or "CS209"
+            val subjectcode = regex.find(subject)?.value?.replace(" ", "") ?: "MK101"
             val examType = backStackEntry.arguments?.getString("examType") ?: "midsem"
-            PdfListScreen(navController = navController,semester = semester,subject = subject, examType =  examType)
+            PdfListScreen(navController = navController,semester = semester, subjectcode = subjectcode, examType =  examType)
         }
         // ✅ Edit Screen (Pop + Slide)
         composable("edit",
@@ -132,6 +136,10 @@ fun AppNavigation(navController: NavHostController) {
             enterTransition = { slideInLeft() },
             exitTransition = { slideOutRight() }) {
             FolderListScreen(navController, fileViewModel, userViewModel, rootPath)
+        }
+        composable("pdfViewer/{pdfUrl}") { backStackEntry ->
+            val pdfUrl = backStackEntry.arguments?.getString("pdfUrl") ?: ""
+            PdfViewerScreen(navController, Uri.decode(pdfUrl)) // ✅ Decode safe URL
         }
         composable(
             "login",

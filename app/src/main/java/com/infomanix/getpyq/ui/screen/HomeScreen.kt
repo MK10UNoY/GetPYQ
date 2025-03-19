@@ -376,7 +376,6 @@ fun DrawerContent2(onItemClick: () -> Unit, navController: NavController,userVie
     var clickCount by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
 
-
     Column(
         modifier = Modifier
             .fillMaxHeight()

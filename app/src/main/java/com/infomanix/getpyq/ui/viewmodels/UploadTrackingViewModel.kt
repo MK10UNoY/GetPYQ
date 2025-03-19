@@ -5,6 +5,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.infomanix.getpyq.data.PyqMetaData
+import com.infomanix.getpyq.data.UploadMetadata
 import com.infomanix.getpyq.repository.UploadTrackingRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
@@ -35,10 +37,30 @@ class UploadTrackingViewModel @Inject constructor(
             }
         }
     }
-
-    fun insertUpload(uploadData: Map<String, Any>) {
+    private val _pdfList = MutableLiveData<List<PyqMetaData>>() // ✅ LiveData for UI
+    val pdfList: LiveData<List<PyqMetaData>> = _pdfList
+    fun fetchSubjectPdfUrls(metaData: PyqMetaData) {
         viewModelScope.launch {
-            repository.insertUploadRecord(uploadData)
+            try {
+                Log.d("UploadTracking", "Fetching PDFs for: $metaData")
+                val uploads = repository.fetchSubjectPdfUrls(metaData) // ✅ Fetch from repository
+                _pdfList.postValue(uploads) // ✅ Update LiveData for UI
+            } catch (e: Exception) {
+                Log.e("UploadTracking", "❌ Error fetching PDFs: ${e.message}", e)
+                _pdfList.postValue(emptyList()) // ✅ Prevent crashes by returning empty list
+            }
+        }
+    }
+    /**
+     * ✅ Insert upload record into Supabase.
+     */
+    fun insertUpload(uploadData: UploadMetadata) {
+        viewModelScope.launch {
+            try {
+                repository.insertUploadRecord(uploadData)
+            } catch (e: Exception) {
+                Log.e("UploadTracking", "❌ Error inserting upload: ${e.message}", e)
+            }
         }
     }
 }
