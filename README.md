@@ -64,7 +64,7 @@ GetPYQ is an Android application designed to streamline the process of uploading
 
 ### 1️⃣ **Clone the Repository**
 ```sh
-git clone https://github.com/yourusername/GetPYQ.git
+git clone https://github.com/MK10UNoY/GetPYQ.git
 cd GetPYQ
 ```
 
@@ -118,8 +118,8 @@ FileStorage.uploadToCloudinary2(
 ## 🛠️ Contributors
 
 👤 **Your Name**  
-- GitHub: [yourusername](https://github.com/yourusername)  
-- LinkedIn: [Your Profile](https://linkedin.com/in/yourprofile)
+- GitHub: https://github.com/MK10UNoY/
+- LinkedIn: https://www.linkedin.com/in/mrinmoy-koiri-a1a03327b/
 
 ---
 
