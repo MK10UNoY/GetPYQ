@@ -88,6 +88,10 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.infomanix.getpyq.ui.viewmodels.FileViewModel
 import com.infomanix.getpyq.utils.ImageUtils
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -282,7 +286,7 @@ fun CameraScannerScreen(navController: NavController, fileViewModel: FileViewMod
                         }, text = "PDF", size = 35)
                     }
                     CaptureButton {
-                        capturePhoto(context, imageCapture, outputDirectory, capturedImages)
+                        capturePhoto(imageCapture, outputDirectory, capturedImages, context)
                     }
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center) {
                         ActionBtn(
@@ -433,55 +437,41 @@ fun CameraPreviewScreen(imageCapture: ImageCapture, isGridEnabled: Boolean) {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.R)
 fun capturePhoto(
-    context: Context,
     imageCapture: ImageCapture,
     outputDirectory: File,
     capturedImages: MutableList<File>,
+    context: Context
 ) {
-    // 🔹 Ensure directory exists
     if (!outputDirectory.exists()) outputDirectory.mkdirs()
 
-    // 🔹 Get existing images in the directory
-    val existingImages = outputDirectory.listFiles { file -> file.extension == "jpg" } ?: emptyArray()
-
-    // 🔹 Generate new filename with index
-    val index = existingImages.size + 1 // Next available index
-    val photoFile = File(outputDirectory, "${outputDirectory.name}_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}-$index.jpg")
-
+    val photoFile = File(outputDirectory, "IMG_${System.currentTimeMillis()}.jpg")
     val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
-    imageCapture.takePicture(
-        outputOptions,
-        Executors.newSingleThreadExecutor(),
-        object : ImageCapture.OnImageSavedCallback {
-            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                // Fix orientation
+    val executor = ContextCompat.getMainExecutor(context)
+
+    imageCapture.takePicture(outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
+        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+            CoroutineScope(Dispatchers.IO).launch {
                 val correctedBitmap = ImageUtils.getCorrectlyOrientedBitmap(photoFile)
 
-                // Save corrected bitmap back to file
                 FileOutputStream(photoFile).use { out ->
-                    correctedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+                    correctedBitmap.compress(Bitmap.CompressFormat.JPEG, 67, out) // Change to JPEG
                 }
 
-                // Recycle to free memory
                 correctedBitmap.recycle()
 
-                // Compress image (optional)
-                ImageUtils.compressImage2(photoFile, 1500)
-
-                // Add to list
-                capturedImages.add(photoFile)
-                Log.d("CameraX", "Image saved: ${photoFile.absolutePath}")
+                withContext(Dispatchers.Main) { capturedImages.add(photoFile) }
             }
-
-            override fun onError(exception: ImageCaptureException) {
-                Log.e("CameraX", "Image capture failed", exception)
-            }
+            Log.d("CameraX", "✅ Image saved: ${photoFile.absolutePath}")
         }
-    )
-}
 
+        override fun onError(exception: ImageCaptureException) {
+            Log.e("CameraX", "❌ Image capture failed", exception)
+        }
+    })
+}
 
 @Composable
 fun CaptureButton(onClick: () -> Unit) {

@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.infomanix.getpyq.ui.fragments.RenameFolderBottomSheet
@@ -69,7 +70,7 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
     val imageList by remember { mutableStateOf(fileViewModel.imageFiles) }
 
     //val folderName by remember { derivedStateOf { fileViewModel.getSessionFolderName()?.substringAfterLast("/") ?: "Unnamed" } }
-    val folderName by fileViewModel.folderName.collectAsState()  // ✅ Auto-updates UI
+    val folderName by fileViewModel.folderName.collectAsStateWithLifecycle()  // ✅ Auto-updates UI
 
     var currentFolderName by remember { mutableStateOf("") } // Track UI state
     var showRenameBottomSheet by remember { mutableStateOf(false) }

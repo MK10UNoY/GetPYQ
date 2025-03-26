@@ -266,15 +266,15 @@ fun Home(navController: NavController, userViewModel: UserViewModel) {
                             // ✅ Show "Welcome, {Username}!"
                             Text(
                                 "Welcome, $name",
-                                style = MaterialTheme.typography.headlineMedium
+                                style = MaterialTheme.typography.headlineSmall
                             )
                         }
 
                         is UserState.Uploader -> {
-                            val uploaderName = userState.username
+                            val uploaderName = userState.useremail
                             Text(
                                 "Welcome, $name you are now an Uploader",
-                                style = MaterialTheme.typography.headlineMedium
+                                style = MaterialTheme.typography.headlineSmall
                             )
                             Text("Email: $uploaderName")
                         }

@@ -47,7 +47,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
@@ -66,6 +65,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.infomanix.getpyq.data.UploadMetadata
@@ -76,7 +76,12 @@ import com.infomanix.getpyq.ui.viewmodels.UploadTrackingViewModel
 import com.infomanix.getpyq.ui.viewmodels.UserViewModel
 import com.infomanix.getpyq.utils.AuthManagerUtils
 import com.infomanix.getpyq.utils.PdfUtils
+import com.infomanix.getpyq.utils.UploadUtils
+import com.infomanix.getpyq.utils.UploadUtils.startUpload
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 
@@ -95,15 +100,18 @@ fun FolderListScreen(
     val pdfFiles = remember { mutableStateListOf<File>().apply { addAll(getFolders(rootPath)) } }
     val uploadedPdfs by uploadTrackingViewModel.uploadList.observeAsState(emptyList())
 
-    val uploaderEmail = when (val userState = userViewModel.userState.collectAsState().value) {
-        is UserState.Uploader -> userState.useremail
-        else -> null
-    }
+    val uploaderEmail =
+        when (val userState = userViewModel.userState.collectAsStateWithLifecycle().value) {
+            is UserState.Uploader -> userState.useremail
+            else -> null
+        }
 
     LaunchedEffect(key1 = uploaderEmail) {
+        Log.d("Upload", "Entered screen")
         if (!uploaderEmail.isNullOrEmpty()) {
             uploadTrackingViewModel.fetchUploads(uploaderEmail)
         }
+        Log.d("Upload", "Entered screen")
     }
     Column(modifier = Modifier.fillMaxSize()) {
         AppTopBar { scope.launch { drawerState.open() } }
@@ -357,22 +365,36 @@ fun FolderItem(
                                 if (uploadDone) {
                                     showReuploadDialog = true
                                 } else {
-                                    startUpload(
-                                        folder,
-                                        context,
-                                        uploadTrackingViewModel = uploadTrackingViewModel,
-                                        onProgress = { progress ->
-                                            uploadProgress = progress
-                                        },
-                                        onComplete = {
-                                            isUploading = false
-                                            uploadDone = true
-                                        })
                                     isUploading = true
+                                    uploadProgress = 0
+
+                                    // ✅ Launch in CoroutineScope
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        UploadUtils.startUpload(
+                                            folder,
+                                            context,
+                                            uploadTrackingViewModel = uploadTrackingViewModel,
+                                            onProgress = { progress ->
+                                                // ✅ Update UI on Main Thread
+                                                launch(Dispatchers.Main) {
+                                                    uploadProgress = progress
+                                                }
+                                            },
+                                            onComplete = {
+                                                // ✅ Update UI on Main Thread
+                                                launch(Dispatchers.Main) {
+                                                    isUploading = false
+                                                    uploadDone = true
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
                             },
-                            enabled = !isUploading // 🔹 Disable button when upload is in progress
-                        ) {
+                            enabled = !isUploading
+                        )
+
+                        {
                             Icon(
                                 imageVector = when {
                                     isUploading -> Icons.Default.CloudSync
@@ -409,14 +431,27 @@ fun FolderItem(
             confirmButton = {
                 TextButton(onClick = {
                     showReuploadDialog = false
+
+                    // ✅ Update UI on Main Thread
                     uploadDone = false
                     isUploading = true
-                    startUpload(folder, context, onProgress = { progress ->
-                        uploadProgress = progress
-                    }, onComplete = {
-                        isUploading = false
-                        uploadDone = true
-                    }, uploadTrackingViewModel)
+
+                    CoroutineScope(Dispatchers.IO).launch {
+                        UploadUtils.startUpload(
+                            folder,
+                            context,
+                            onProgress = { progress ->
+                                launch(Dispatchers.Main) { uploadProgress = progress } // ✅ UI updates on Main thread
+                            },
+                            onComplete = {
+                                launch(Dispatchers.Main) {
+                                    isUploading = false
+                                    uploadDone = true
+                                }
+                            },
+                            uploadTrackingViewModel
+                        )
+                    }
                 }) {
                     Text("Yes")
                 }
@@ -430,43 +465,48 @@ fun FolderItem(
     }
 }
 
-fun startUpload(
+/*
+@SuppressLint("SimpleDateFormat")
+suspend fun startUpload(
     folder: File,
     context: Context,
     onProgress: (Int) -> Unit,
     onComplete: () -> Unit,
     uploadTrackingViewModel: UploadTrackingViewModel,
 ) {
-    val folderNameParts = folder.name.split("_")
+    //CoroutineScope(Dispatchers.IO).launch {
 
-    // Ensure correct folder name format
-    if (folderNameParts.size < 5) {
-        Log.e("Upload", "Invalid folder name format: ${folder.name}")
-        return
-    }
+        val folderNameParts = folder.name.split("_")
 
-    val courseCode = folderNameParts[0] // ✅ Extract course code (e.g., "EE210")
-    val subject = folderNameParts[1] // ✅ Extract subject name (e.g., "Microprocessors")
-    val semester =
-        extractSemesterNumber(folderNameParts[2]) // ✅ Extract semester number (e.g., "Sem4" -> 4)
-    val examType = folderNameParts[3] // ✅ Extract exam type (e.g., "Mid-Semester")
+        // Ensure correct folder name format
+        if (folderNameParts.size < 5) {
+            Log.e("Upload", "Invalid folder name format: ${folder.name}")
+            return
+        }
 
-    val monthYearParts = folderNameParts[4].split("-") // ✅ Extract month and year
-    val uploadMonth = mapMonthToNumber(monthYearParts[0]) // ✅ Convert "March" -> 3
-    val uploadYear = monthYearParts[1] // ✅ Extract year (e.g., "2025")
+        val courseCode = folderNameParts[0] // ✅ Extract course code (e.g., "EE210")
+        val subject = folderNameParts[1] // ✅ Extract subject name (e.g., "Microprocessors")
+        val semester =
+            extractSemesterNumber(folderNameParts[2]) // ✅ Extract semester number (e.g., "Sem4" -> 4)
+        val examType = folderNameParts[3] // ✅ Extract exam type (e.g., "Mid-Semester")
 
-    val uploadTimestamp =
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(System.currentTimeMillis()) // ✅ Current timestamp
+        val monthYearParts = folderNameParts[4].split("-") // ✅ Extract month and year
+        val uploadMonth = mapMonthToNumber(monthYearParts[0]) // ✅ Convert "March" -> 3
+        val uploadYear = monthYearParts[1] // ✅ Extract year (e.g., "2025")
 
-    uploadPdfToCloudinary(
-        fileName= folder.name,
-        folder = folder, courseCode = courseCode, subject = subject,
-        semester = semester, examType = examType, monthYear = uploadMonth, year = uploadYear,
-        onProgress = onProgress,
-        context = context,
-        onComplete = onComplete,
-        uploadTrackingViewModel = uploadTrackingViewModel
-    )
+        val uploadTimestamp =
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(System.currentTimeMillis()) // ✅ Current timestamp
+
+        uploadPdfToCloudinary(
+            fileName= folder.name,
+            folder = folder, courseCode = courseCode, subject = subject,
+            semester = semester, examType = examType, monthYear = uploadMonth, year = uploadYear,
+            onProgress = onProgress,
+            context = context,
+            onComplete = onComplete,
+            uploadTrackingViewModel = uploadTrackingViewModel
+        )
+    //}
 }
 
 fun mapMonthToNumber(month: String): Int {
@@ -487,7 +527,7 @@ fun mapMonthToNumber(month: String): Int {
     }
 }
 
-fun uploadPdfToCloudinary(
+suspend fun uploadPdfToCloudinary(
     fileName: String,
     folder: File,
     courseCode: String,
@@ -513,7 +553,10 @@ fun uploadPdfToCloudinary(
     val pdfFile = File(folder, "$fileName.pdf")
 
     // ✅ Convert images to PDF
-    PdfUtils.compileImagesToPdf4Upload(images, pdfFile.toString())
+    withContext(Dispatchers.IO) {
+        PdfUtils.compileImagesToPdf4Upload(images, pdfFile.toString())
+    }
+
 
     if (!pdfFile.exists()) {
         Log.e("Upload", "❌ PDF creation failed at path: ${pdfFile.absolutePath}")
@@ -600,6 +643,7 @@ fun saveFileMetadata(
 fun extractSemesterNumber(semester: String): Int {
     return semester.filter { it.isDigit() }.toIntOrNull() ?: 0
 }
+*/
 
 fun getPdfs(rootPath: String): List<File> {
     return File(rootPath).listFiles()?.filter { it.extension == "pdf" } ?: emptyList()

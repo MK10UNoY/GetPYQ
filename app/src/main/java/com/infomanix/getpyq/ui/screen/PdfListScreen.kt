@@ -160,8 +160,7 @@ fun PdfItem(pdfName: String, pdfUrl: String, navController: NavController, conte
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = pdfName, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(text = pdfUrl, fontSize = 12.sp, color = Color.Gray)
+                Text(text = pdfName, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
 
             IconButton(onClick = { downloadPdf(context, pdfUrl, pdfName) }) {

@@ -2,6 +2,7 @@ package com.infomanix.getpyq.utils
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.infomanix.getpyq.data.UserPreferences
@@ -23,6 +24,16 @@ object AuthManagerUtils {
 
     fun getCurrentUserEmail(): String? = currentUser?.email
 
+    init {
+        firebaseAuth.addAuthStateListener { auth ->
+            val user = auth.currentUser
+            if (user == null) {
+                // User is signed out, clear stored session data
+
+            }
+        }
+    }
+
     // 🔥 Updated Signup function in AuthManagerUtils with UX enhancements
     fun signup(
         context: Context,
@@ -31,7 +42,6 @@ object AuthManagerUtils {
         scholarId: String,
         onResult: (Boolean, String) -> Unit, // Returning both success status and message
     ) {
-        // Basic validation for password length
         if (password.length < 6) {
             onResult(false, "Password must be at least 6 characters long.")
             return
@@ -160,13 +170,9 @@ object AuthManagerUtils {
         }
     }
 
-    // 🌟 Save user type and scholarId using UserPreferences
-    private fun updateUserType(
-        context: Context,
-        userEmail: String,
-        userType: String,
-    ) {
-        runBlocking {
+    // ✅ User type persistence
+    private fun updateUserType(context: Context, userEmail: String, userType: String) {
+        CoroutineScope(Dispatchers.IO).launch {
             UserPreferences.getInstance(context).updateUserInfo(
                 email = userEmail,
                 userType = userType
@@ -190,6 +196,17 @@ object AuthManagerUtils {
     fun loadUserName(context: Context): String {
         return runBlocking {
             UserPreferences.getInstance(context).userName.first() ?: ""
+        }
+    }
+    fun checkUserSession(context: Context, onResult: (Boolean, String) -> Unit) {
+        val user = firebaseAuth.currentUser
+        if (user != null) {
+            // Load saved user type
+            val userType = loadUserType(context)
+            updateUserType(context, user.email ?: "", userType)
+            onResult(true, "Session restored")
+        } else {
+            onResult(false, "No active session")
         }
     }
 }
