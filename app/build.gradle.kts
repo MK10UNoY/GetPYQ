@@ -1,3 +1,4 @@
+import com.android.build.api.dsl.Packaging
 import java.util.Properties
 
 plugins {
@@ -12,6 +13,11 @@ plugins {
 android {
     namespace = "com.infomanix.getpyq"
     compileSdk = 35
+    packaging {
+        resources {
+            excludes += "META-INF/DEPENDENCIES"
+        }
+    }
 
     defaultConfig {
         applicationId = "com.infomanix.getpyq"
@@ -55,7 +61,8 @@ android {
 
 val supabaseVersion = "3.1.3"
 val ktor_version = "3.1.1"
-dependencies {    implementation(libs.androidx.runtime.livedata)
+dependencies {
+    implementation(libs.androidx.runtime.livedata)
 
     // ✅ Android & Compose Core
     implementation(libs.androidx.core.ktx)
@@ -100,6 +107,7 @@ dependencies {    implementation(libs.androidx.runtime.livedata)
 
     // ✅ Hilt (Dependency Injection)
     implementation("com.google.dagger:hilt-android:2.51.1")
+    implementation(libs.androidx.navigation.safe.args.generator)
     kapt("com.google.dagger:hilt-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
@@ -136,6 +144,7 @@ dependencies {    implementation(libs.androidx.runtime.livedata)
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.accompanist.navigation.animation.v0332alpha)
+    implementation(libs.pdfbox)
 }
 configurations.all {
     resolutionStrategy.eachDependency {
@@ -143,4 +152,6 @@ configurations.all {
             useVersion(ktor_version) // Now matches across all dependencies
         }
     }
+    exclude ("xmlpull")
+    exclude ("xpp3")
 }

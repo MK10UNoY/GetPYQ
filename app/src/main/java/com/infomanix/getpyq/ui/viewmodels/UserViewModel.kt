@@ -1,10 +1,13 @@
 package com.infomanix.getpyq.ui.viewmodels
 
 import android.content.Context
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.infomanix.getpyq.data.UserState
 import com.infomanix.getpyq.utils.AuthManagerUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -13,6 +16,8 @@ class UserViewModel : ViewModel() {
     private val _userState = MutableStateFlow<UserState>(UserState.Guest)
     val userState: StateFlow<UserState> = _userState
 
+    private val _userType = MutableLiveData<String>()
+    val userType: LiveData<String> get() = _userType
     // ✅ Set user state manually
     fun setUserState(state: UserState) {
         _userState.value = state

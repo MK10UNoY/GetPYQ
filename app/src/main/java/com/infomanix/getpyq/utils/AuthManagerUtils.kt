@@ -1,36 +1,60 @@
 package com.infomanix.getpyq.utils
 
-import android.annotation.SuppressLint
 import android.content.Context
-import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.infomanix.getpyq.data.UserPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 object AuthManagerUtils {
+    private lateinit var appContext: Context
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
-
-    @SuppressLint("StaticFieldLeak")
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 
     private val currentUser get() = firebaseAuth.currentUser
 
     fun isLoggedIn(): Boolean = currentUser != null
 
     fun getCurrentUserEmail(): String? = currentUser?.email
+    fun initialize(context: Context) {
+        appContext = context.applicationContext // Use application context for a global reference
+        firebaseAuth.currentUser?.let { user ->
+            restoreSessionData(user.email, appContext)
+        }
+    }
 
     init {
+        // Automatically listen for authentication state changes and check session
         firebaseAuth.addAuthStateListener { auth ->
             val user = auth.currentUser
             if (user == null) {
                 // User is signed out, clear stored session data
-
+                clearSessionData(appContext)
+            } else {
+                // User is signed in, restore the session
+                restoreSessionData(user.email, appContext)
             }
+        }
+    }
+    // 🔒 Private function to handle session restoration
+    private fun restoreSessionData(email: String?,context: Context) {
+        // Example: Restore user type and update preferences (if needed)
+        email?.let {
+            CoroutineScope(Dispatchers.IO).launch {
+                val userType = UserPreferences.getInstance(context).userType.firstOrNull() ?: "guest"
+                updateUserType(context = context, userEmail = it, userType = userType)
+                // Additional session restoration logic goes here...
+            }
+        }
+    }
+
+    // 🔒 Private function to clear session data
+    private fun clearSessionData(context: Context) {
+        CoroutineScope(Dispatchers.IO).launch {
+            UserPreferences.getInstance(context = context).clearUserInfo() // Clears stored preferences
         }
     }
 
@@ -193,11 +217,13 @@ object AuthManagerUtils {
             UserPreferences.getInstance(context).scholarId.first() ?: ""
         }
     }
+
     fun loadUserName(context: Context): String {
         return runBlocking {
             UserPreferences.getInstance(context).userName.first() ?: ""
         }
     }
+
     fun checkUserSession(context: Context, onResult: (Boolean, String) -> Unit) {
         val user = firebaseAuth.currentUser
         if (user != null) {

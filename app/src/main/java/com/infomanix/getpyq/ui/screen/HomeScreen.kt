@@ -110,7 +110,7 @@ fun Home(navController: NavController, userViewModel: UserViewModel) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var isMidsem by rememberSaveable { mutableStateOf(true) }
     var selectedBranch by rememberSaveable { mutableStateOf("CS") }
-    val userState = userViewModel.userState.collectAsState().value
+    val userState = userViewModel.userState.collectAsStateWithLifecycle().value
 
 // 🎯 Load the user’s name from DataStore using UserPreferences Singleton
     val context = LocalContext.current
@@ -119,7 +119,7 @@ fun Home(navController: NavController, userViewModel: UserViewModel) {
 // ✅ Use collectAsStateWithLifecycle for lifecycle safety
     val userName by userPreferences.userName.collectAsStateWithLifecycle(initialValue = "Guest")
     val scholarId by userPreferences.scholarId.collectAsStateWithLifecycle(initialValue = "")
-    LaunchedEffect(userName) {
+    LaunchedEffect(userName,userState) {
         Log.d("user", "Collected userName: $userName with Sch.ID as $scholarId")
     }
 

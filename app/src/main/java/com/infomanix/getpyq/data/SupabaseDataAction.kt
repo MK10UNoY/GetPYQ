@@ -10,7 +10,8 @@ data class UploadMetadata(
     val uploadsubject: String,
     val uploadmonth: String,
     val uploadyear: String,
-    val uploadtime: String
+    val uploadtime: String,
+    val uploadterm: String,
 )
 @Serializable
 data class PyqMetaData(
@@ -19,5 +20,6 @@ data class PyqMetaData(
     val cloudurl: String,
     val uploadmonth: String,
     val uploadyear: String,
-    val uploadtime: String
+    val uploadtime: String,
+    val uploadterm: String,
     )

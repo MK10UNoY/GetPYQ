@@ -20,7 +20,6 @@ import java.io.File
 import java.io.FileOutputStream
 
 object PdfUtils {
-
     /**
      * Get all scanned PDFs stored in the app's external directory.
      */

@@ -81,7 +81,8 @@ fun PdfListScreen(
             cloudurl = "",
             uploadmonth = "",
             uploadyear = "",
-            uploadtime = ""
+            uploadtime = "",
+            uploadterm = examType
         )
         uploadTrackingViewModel.fetchSubjectPdfUrls(metaData) // ✅ Call ViewModel function
         isLoading.value = false  // ✅ Stop loading when fetch completes

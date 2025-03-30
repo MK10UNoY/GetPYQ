@@ -7,10 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.infomanix.getpyq.data.PyqMetaData
 import com.infomanix.getpyq.data.UploadMetadata
+import com.infomanix.getpyq.repository.Upload
 import com.infomanix.getpyq.repository.UploadTrackingRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -19,14 +18,15 @@ class UploadTrackingViewModel @Inject constructor(
     private val repository: UploadTrackingRepository
 ) : ViewModel() {
 
-    private val _uploadList = MutableLiveData<List<Map<String, Any>>>()
-    val uploadList: LiveData<List<Map<String, Any>>> = _uploadList
+    private val _uploadList = MutableLiveData<List<Upload>>()
+    val uploadList: LiveData<List<Upload>> get()= _uploadList
 
     fun fetchUploads(email: String) {
         viewModelScope.launch {
             try {
                 Log.d("UploadTracking", "Fetching uploads for email: $email")
                 val uploads = repository.fetchUploadsByEmail(email)
+                Log.d("UploadTracking", "Fetched uploads: $uploads")
                 if (uploads.isEmpty()) {
                     Log.w("UploadTracking", "No uploads found for $email")
                 }

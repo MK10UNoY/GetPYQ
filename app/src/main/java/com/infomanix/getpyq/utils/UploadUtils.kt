@@ -8,11 +8,20 @@ import com.infomanix.getpyq.data.UploadMetadata
 import com.infomanix.getpyq.storage.FileStorage
 import com.infomanix.getpyq.ui.viewmodels.UploadTrackingViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 
 object UploadUtils {
+
+    private val _uploadProgress = MutableStateFlow(0)
+    val uploadProgress: StateFlow<Int> get() = _uploadProgress
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> get() = _isUploading
+    private val _uploadDone = MutableStateFlow(false)
+    val uploadDone: StateFlow<Boolean> get() = _uploadDone
 
     suspend fun startUpload(
         folder: File,
@@ -20,14 +29,17 @@ object UploadUtils {
         onProgress: (Int) -> Unit,
         onComplete: () -> Unit,
         uploadTrackingViewModel: UploadTrackingViewModel,
-    ) = withContext(Dispatchers.IO) {  // Run in background
+    ) = withContext(Dispatchers.IO) {
+        // Run in background
+        _isUploading.value = true
+        _uploadProgress.value = 0
         val folderNameParts = folder.name.split("_")
 
         if (folderNameParts.size < 5) {
             Log.e("Upload", "Invalid folder name format: ${folder.name}")
             return@withContext
         }
-        Log.d("Upload","Start upload called")
+        Log.d("Upload", "Start upload called")
         val courseCode = folderNameParts[0]
         val subject = folderNameParts[1]
         val semester = extractSemesterNumber(folderNameParts[2])
@@ -47,7 +59,11 @@ object UploadUtils {
             year = uploadYear,
             onProgress = onProgress,
             context = context,
-            onComplete = onComplete,
+            onComplete = {
+                _isUploading.value = false
+                _uploadProgress.value = 100
+                _uploadDone.value = true
+                onComplete() },
             uploadTrackingViewModel = uploadTrackingViewModel
         )
     }
@@ -66,9 +82,10 @@ object UploadUtils {
         context: Context,
         onComplete: () -> Unit,
     ) = withContext(Dispatchers.IO) {
-        Log.d("Upload","inside private upload to cloudinary called")
+        Log.d("Upload", "inside private upload to cloudinary called")
         // Run in background
-        val images = folder.listFiles()?.filter { it.extension in listOf("jpg", "jpeg", "png") } ?: emptyList()
+        val images = folder.listFiles()?.filter { it.extension in listOf("jpg", "jpeg", "png") }
+            ?: emptyList()
 
         if (images.isEmpty()) {
             Log.e("Upload", "❌ No images found to compile into a PDF")
@@ -86,19 +103,26 @@ object UploadUtils {
             onComplete()
             return@withContext
         }
-        Log.d("Upload","pdf creation success called")
+        Log.d("Upload", "pdf creation success called")
 
         val fileUri = Uri.fromFile(pdfFile)
         Log.d("Upload", "✅ File ready for upload: ${pdfFile.absolutePath}")
 
         FileStorage.uploadToCloudinary2(
             fileUri = fileUri,
-            onProgress = { progress -> onProgress(progress) },
+            onProgress = {onProgress(_uploadProgress.value)},
             onSuccess = { fileUrl ->
                 val uploaderEmail = AuthManagerUtils.getCurrentUserEmail().toString()
                 saveFileMetadata(
-                    semester, courseCode, pdfFile.name, monthYear.toString(), year, fileUrl, uploaderEmail,
-                    uploadTrackingViewModel,
+                    semester = semester,
+                    subjectcode = courseCode,
+                    name = pdfFile.name,
+                    month = monthYear.toString(),
+                    year = year,
+                    fileUrl = fileUrl,
+                    uploaderEmail = uploaderEmail,
+                    uploadTerm = examType,
+                    uploadTrackingViewModel = uploadTrackingViewModel,
                     onSuccess = {
                         Log.d("Upload", "✅ PDF metadata saved successfully in Supabase")
                         pdfFile.delete() // Delete local PDF after upload
@@ -118,7 +142,7 @@ object UploadUtils {
         )
     }
 
-    fun extractSemesterNumber(semester: String): Int {
+    private fun extractSemesterNumber(semester: String): Int {
         return semester.filter { it.isDigit() }.toIntOrNull() ?: 0
     }
 
@@ -139,6 +163,7 @@ object UploadUtils {
             else -> 0
         }
     }
+
     @SuppressLint("SimpleDateFormat")
     fun saveFileMetadata(
         semester: Int,
@@ -146,6 +171,7 @@ object UploadUtils {
         name: String,
         month: String,
         year: String,
+        uploadTerm: String,
         fileUrl: String,
         uploaderEmail: String, // ✅ Add uploader email
         uploadTrackingViewModel: UploadTrackingViewModel, // ✅ Inject ViewModel
@@ -157,13 +183,14 @@ object UploadUtils {
                 SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(System.currentTimeMillis()) // ✅ Timestamp
             val metadata = UploadMetadata(
                 filepath = name, // ✅ Store the PDF name
-                uploaderemail = uploaderEmail, // ✅ Store uploader's email
+                uploaderemail = uploaderEmail, // ✅ Store uploader email
                 cloudurl = fileUrl, // ✅ Cloudinary file URL
                 uploadsem = semester, // ✅ Convert semester to Int
                 uploadsubject = subjectcode, // ✅ Subject name
                 uploadmonth = month,// ✅ Extract current month
                 uploadyear = year,
-                uploadtime = uploadTimestamp
+                uploadtime = uploadTimestamp,
+                uploadterm = uploadTerm
             )
             Log.d("Upload", "✅ File metadata: $metadata")
             // ✅ Insert metadata into Supabase
