@@ -9,7 +9,7 @@ import dagger.hilt.android.HiltAndroidApp
 class GPQApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        AuthManagerUtils.initialize(this) // Initialize with application context
+        //AuthManagerUtils.initialize(this) // Initialize with application context
         // Catch any uncaught exceptions globally
         Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
             Log.e("AppCrash", "Uncaught exception", throwable)

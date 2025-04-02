@@ -15,7 +15,6 @@ import java.io.File
 import java.text.SimpleDateFormat
 
 object UploadUtils {
-
     private val _uploadProgress = MutableStateFlow(0)
     val uploadProgress: StateFlow<Int> get() = _uploadProgress
     private val _isUploading = MutableStateFlow(false)

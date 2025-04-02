@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.infomanix.getpyq.ui.navigation.AppNavigation
+import com.infomanix.getpyq.utils.AuthManagerUtils
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint // ✅ Add this annotation
@@ -18,6 +19,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        //AuthManagerUtils.initialize(this)
         enableEdgeToEdge()
         WindowManager.LayoutParams.FLAG_SECURE
         setContent {

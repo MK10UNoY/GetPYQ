@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -140,6 +141,61 @@ fun CameraScannerScreen(navController: NavController, fileViewModel: FileViewMod
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted -> if (!granted) Log.e("CameraX", "Camera permission denied!") }
+    )
+    // Launch the image picker for multiple image selection
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents(),
+        onResult = { uris ->
+            uris.let {
+                // Copy selected images to output directory and add to the capturedImages list
+                it.forEach { uri ->
+                    val imageFile = File(outputDirectory, "image_${System.currentTimeMillis()}.jpg")
+                    copyImageToFile(context, uri, imageFile)
+                    capturedImages.add(imageFile)
+                }
+            }
+        }
+    )
+    val pdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            uri?.let {
+                try {
+                    val fileDescriptor = context.contentResolver.openFileDescriptor(uri, "r")
+                    val pdfRenderer = PdfRenderer(fileDescriptor!!)
+                    val pageCount = pdfRenderer.pageCount
+
+                    val images = mutableListOf<File>()
+                    val outputDir = File(getOutputDirectory(context), "pdf_images")
+                    if (!outputDir.exists()) outputDir.mkdirs()
+
+                    // Loop through each page and convert to image
+                    for (pageIndex in 0 until pageCount) {
+                        val page = pdfRenderer.openPage(pageIndex)
+                        val bitmap =
+                            Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+
+                        // Save bitmap as a file in outputDir
+                        val imageFile = File(outputDir, "page_${pageIndex + 1}.jpg")
+                        val outputStream = FileOutputStream(imageFile)
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+
+                        // Add image file to the list
+                        images.add(imageFile)
+
+                        // Close the page after rendering
+                        page.close()
+                    }
+
+                    // Once all images are generated, add them to capturedImages
+                    capturedImages.addAll(images)
+                    pdfRenderer.close()
+                } catch (e: Exception) {
+                    Log.e("PDFConversion", "Error converting PDF to images", e)
+                }
+            }
+        }
     )
 
     LaunchedEffect(Unit) {
@@ -279,10 +335,11 @@ fun CameraScannerScreen(navController: NavController, fileViewModel: FileViewMod
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         ActionBtn(onClick = {
-                            /*Open Gallery */
+                            galleryLauncher.launch("image/*") // Open the gallery and allow image selection
                         }, text = "Gallery", size = 35)
                         ActionBtn(onClick = {
-                            /* Open Gallery */
+                            pdfLauncher.launch("application/pdf")
+                            /* Open Pdf Selector */
                         }, text = "PDF", size = 35)
                     }
                     CaptureButton {
@@ -336,6 +393,25 @@ fun CameraScannerScreen(navController: NavController, fileViewModel: FileViewMod
             },
             onDismiss = { showExitDialog = false }
         )
+    }
+}
+
+fun
+
+
+        convertPdfToImages(context: Context, uri: Uri) {
+
+}
+
+fun copyImageToFile(context: Context, uri: Uri, destinationFile: File) {
+    try {
+        val inputStream = context.contentResolver.openInputStream(uri)
+        val outputStream = FileOutputStream(destinationFile)
+        inputStream?.copyTo(outputStream)
+        outputStream.close()
+        inputStream?.close()
+    } catch (e: Exception) {
+        Log.e("GallerySelection", "Error copying image", e)
     }
 }
 
@@ -442,7 +518,7 @@ fun capturePhoto(
     imageCapture: ImageCapture,
     outputDirectory: File,
     capturedImages: MutableList<File>,
-    context: Context
+    context: Context,
 ) {
     if (!outputDirectory.exists()) outputDirectory.mkdirs()
 

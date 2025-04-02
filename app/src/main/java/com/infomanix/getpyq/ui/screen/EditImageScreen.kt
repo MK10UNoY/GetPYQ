@@ -18,11 +18,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -91,6 +95,7 @@ fun EditImageScreen(navController: NavController, fileViewModel: FileViewModel) 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .systemBarsPadding()
             .navigationBarsPadding()
             .background(Color(0xFF222222)),
         verticalArrangement = Arrangement.SpaceBetween
@@ -98,7 +103,7 @@ fun EditImageScreen(navController: NavController, fileViewModel: FileViewModel) 
         Text(
             text = "Edit Image",
             fontSize = 20.sp,
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(8.dp),
             color = Color.White
         )
 
@@ -123,6 +128,7 @@ fun EditImageScreen(navController: NavController, fileViewModel: FileViewModel) 
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
+                        .wrapContentHeight()
                         .padding(16.dp)
                         .graphicsLayer(rotationZ = angle)
                 )
@@ -130,9 +136,10 @@ fun EditImageScreen(navController: NavController, fileViewModel: FileViewModel) 
 
         }
 
+        Spacer(modifier = Modifier.weight(0.1f))
         // **Crop & Navigation Controls**
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().systemBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
@@ -203,7 +210,8 @@ fun FilterPreviewRow(originalBitmap: Bitmap?, onFilterSelected: (Bitmap.() -> Bi
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         items(filters) { (name, filter) ->
             originalBitmap?.let { bmp ->
@@ -349,4 +357,3 @@ fun ActionButton(text: String, onClick: () -> Unit) {
         Text(text, fontSize = 12.sp, color = Color.White)
     }
 }
-

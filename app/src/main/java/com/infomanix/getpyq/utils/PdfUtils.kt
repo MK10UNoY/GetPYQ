@@ -14,6 +14,7 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import org.apache.pdfbox.pdmodel.PDDocument
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -153,7 +154,6 @@ object PdfUtils {
 
         return null
     }
-
     /**
      * Helper to generate a unique file name*/
     private fun generateUniqueFileName(directory: File, baseName: String): File {

@@ -54,6 +54,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -64,6 +65,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -72,8 +74,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -88,6 +90,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -99,6 +102,7 @@ import com.infomanix.getpyq.R
 import com.infomanix.getpyq.data.UserPreferences
 import com.infomanix.getpyq.data.UserState
 import com.infomanix.getpyq.ui.viewmodels.UserViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -110,33 +114,10 @@ fun Home(navController: NavController, userViewModel: UserViewModel) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var isMidsem by rememberSaveable { mutableStateOf(true) }
     var selectedBranch by rememberSaveable { mutableStateOf("CS") }
-    val userState = userViewModel.userState.collectAsStateWithLifecycle().value
-
-// 🎯 Load the user’s name from DataStore using UserPreferences Singleton
     val context = LocalContext.current
     val userPreferences = remember { UserPreferences.getInstance(context) }
-
-// ✅ Use collectAsStateWithLifecycle for lifecycle safety
     val userName by userPreferences.userName.collectAsStateWithLifecycle(initialValue = "Guest")
-    val scholarId by userPreferences.scholarId.collectAsStateWithLifecycle(initialValue = "")
-    LaunchedEffect(userName,userState) {
-        Log.d("user", "Collected userName: $userName with Sch.ID as $scholarId")
-    }
-
-    // 🎯 Extract Y from ScholarId (e.g., 2XXYXXX)
     val branches = listOf("CE", "CS", "EE", "EC", "EI", "ME")
-    /*
-        // ✅ Collect the scholar ID value from the flow
-        val scholarId = scholarIdFlow.collectAsState(initial = "").value
-
-        // ✅ Extract the 4th character (index 3) and convert to a digit
-        val branchIndex = scholarId.getOrNull(3)?.digitToIntOrNull()
-
-        // ✅ Ensure branch index stays within 1-6
-        if (branchIndex != null) {
-            selectedBranch = if (branchIndex in 1..6) branches[branchIndex - 1] else "CS"
-        }*/
-    // Background Animation
     val infiniteTransition = rememberInfiniteTransition(label = "")
     val color1 by infiniteTransition.animateColor(
         initialValue = Color(0xFF1565C0),
@@ -156,6 +137,7 @@ fun Home(navController: NavController, userViewModel: UserViewModel) {
         ), label = ""
     )
 
+    val userState = userViewModel.userState.collectAsStateWithLifecycle().value
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -246,11 +228,11 @@ fun Home(navController: NavController, userViewModel: UserViewModel) {
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
-                DrawerContent2(
+                DrawerContent(
                     onItemClick = { scope.launch { drawerState.close() } },
                     navController = navController,
                     userViewModel = userViewModel,
-                    userState = userState,
+                    userState = userState
                 )
             }
         ) {
@@ -369,12 +351,20 @@ fun FolderItem(
 }
 
 @Composable
-fun DrawerContent2(onItemClick: () -> Unit, navController: NavController,userViewModel: UserViewModel, userState: UserState) {
+fun DrawerContent(
+    onItemClick: () -> Unit,
+    navController: NavController,
+    userViewModel: UserViewModel,
+    userState: UserState
+) {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val topBarHeight = 0.dp
     val sidePadding = 4.dp
     var clickCount by remember { mutableIntStateOf(0) }
-    val context = LocalContext.current
+    var loginState by remember { mutableStateOf(false) }
+    LaunchedEffect(userState) {
+        loginState = userState is UserState.Uploader
+    }
 
     Column(
         modifier = Modifier
@@ -401,12 +391,6 @@ fun DrawerContent2(onItemClick: () -> Unit, navController: NavController,userVie
                 tint = Color.DarkGray
             )
             Spacer(modifier = Modifier.height(8.dp))
-            // Replace with Username
-            // Text("MRINMOY K", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            // Replace with email
-            // Text("ultimatepro190@gmail.com", color = Color.Gray, fontSize = 14.sp)
-            // Replace with contributions
-            // Text("338.44 MB / 1.24 GB used", color = Color.Gray, fontSize = 12.sp)
             Text(
                 "View Full Profile",
                 color = Color(0xFF42A5F5),
@@ -414,19 +398,16 @@ fun DrawerContent2(onItemClick: () -> Unit, navController: NavController,userVie
                 modifier = Modifier.clickable { /* Handle Click */ }
             )
             Spacer(modifier = Modifier.height(10.dp))
-            val buttonText = if (userState is UserState.Uploader) "Logout" else "Login"
-            val buttonColor = if (userState is UserState.Uploader) Color.Gray else Color.Red
-
+            val buttonText = if (loginState) "Sign Out" else "Sign In"
             Button(
                 onClick = {
-                    if (userState is UserState.Uploader) {
-                        userViewModel.logout(context = context) // Implement logout logic
-                        navController.navigate("home") { popUpTo("home") { inclusive = true } }
+                    if (loginState) {
+                        userViewModel.signOut()
                     } else {
                         navController.navigate("login")
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                colors = ButtonDefaults.buttonColors(containerColor = if (loginState) Color.Gray else Color.Red)
             ) {
                 Text(buttonText, style = MaterialTheme.typography.titleMedium, color = Color.White)
             }
@@ -434,7 +415,6 @@ fun DrawerContent2(onItemClick: () -> Unit, navController: NavController,userVie
 
         Spacer(modifier = Modifier.height(20.dp))
         HorizontalDivider(color = Color.Gray)
-
         // Drawer Items
         val menuItems = listOf(
             "Home" to Icons.Default.Home,
@@ -449,7 +429,6 @@ fun DrawerContent2(onItemClick: () -> Unit, navController: NavController,userVie
             DrawerItem(title, icon, onItemClick)
             if (title in listOf("Refer & Earn", "Support Us")) HorizontalDivider(color = Color.Gray)
         }
-
         Spacer(modifier = Modifier.weight(1f))
 
         // App Version
@@ -502,12 +481,4 @@ fun DrawerItem(title: String, icon: ImageVector, onClick: () -> Unit) {
         Spacer(modifier = Modifier.width(16.dp))
         Text(title, color = Color.DarkGray, fontSize = 20.sp)
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun HomePreview() {
-    val navController = rememberNavController()
-    val userViewModel = UserViewModel()
-    Home(navController, userViewModel)
 }

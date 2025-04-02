@@ -44,7 +44,7 @@ fun UploaderLoginScreen(navController: NavHostController, userViewModel: UserVie
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val errorMessage by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     Box(
@@ -122,11 +122,10 @@ fun UploaderLoginScreen(navController: NavHostController, userViewModel: UserVie
                 Button(
                     onClick = {
                         isLoading = true
-                        AuthManagerUtils.login(
-                            context = context,
+                        AuthManagerUtils.signIn(
                             email = email,
                             password = password
-                        ) { success, messafe ->
+                        ) { success ->
                             isLoading = false
                             if (success) {
                                 val scholarId = AuthManagerUtils.loadScholarId(context)
@@ -140,8 +139,6 @@ fun UploaderLoginScreen(navController: NavHostController, userViewModel: UserVie
                                 navController.navigate("home") {
                                     popUpTo("login") { inclusive = true }
                                 }
-                            } else {
-                                errorMessage = messafe
                             }
                         }
                     },
@@ -210,28 +207,7 @@ fun UploaderSignupScreen(navController: NavHostController, userViewModel: UserVi
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
         } else {
-            Button(onClick = {
-                isLoading = true
-                AuthManagerUtils.signup(
-                    context = context,
-                    email = email,
-                    password = password,
-                    scholarId = scholarId
-                ) { success,message ->
-                    isLoading = false
-                    if (success) {
-                        val userNamer = AuthManagerUtils.loadUserName(context)
-                        userViewModel.setUserState(UserState.Uploader(userName,email, scholarId))
-                        navController.navigate("home") {
-                            popUpTo("signup") { inclusive = true }
-                        }
-                    } else {
-                        errorMessage = message
-                    }
-                }
-            }) {
-                Text("Sign Up")
-            }
+            Text("Sign Up")
         }
 
         Spacer(modifier = Modifier.height(8.dp))

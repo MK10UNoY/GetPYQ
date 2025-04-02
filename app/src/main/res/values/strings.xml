@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">GetPYQ</string>
+    <string name="welcome_uploader">Welcome Uploader</string>
+    <string name="welcome_guest">Welcome Guest</string>
 </resources>
