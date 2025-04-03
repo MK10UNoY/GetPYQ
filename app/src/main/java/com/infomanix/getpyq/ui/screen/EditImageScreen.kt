@@ -18,6 +18,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -122,7 +123,8 @@ fun EditImageScreen(navController: NavController, fileViewModel: FileViewModel) 
                     contentDescription = "Editing Image",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .fillMaxHeight(fraction = 0.7f)
+//                        .weight(1f)
                         .padding(16.dp)
                         .graphicsLayer(rotationZ = angle)
                 )
