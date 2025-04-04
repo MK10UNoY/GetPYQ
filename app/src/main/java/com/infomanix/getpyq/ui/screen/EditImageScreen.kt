@@ -7,6 +7,7 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.util.Log
+import android.view.WindowInsets
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.slideInHorizontally
@@ -18,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -91,14 +93,16 @@ fun EditImageScreen(navController: NavController, fileViewModel: FileViewModel) 
         modifier = Modifier
             .fillMaxSize()
             .systemBarsPadding()
-            .navigationBarsPadding()
+
+//            .navigationBarsPadding()
+
             .background(Color(0xFF222222)),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = "Edit Image",
             fontSize = 20.sp,
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(8.dp, top = 16.dp, end = 8.dp, bottom = 8.dp),
             color = Color.White
         )
 

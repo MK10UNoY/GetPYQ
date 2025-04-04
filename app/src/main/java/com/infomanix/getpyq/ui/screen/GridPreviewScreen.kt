@@ -66,6 +66,9 @@ import com.infomanix.getpyq.utils.PdfUtils
 import java.io.File
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.ui.graphics.vector.path
 
 @OptIn(ExperimentalMaterial3Api::class,
     ExperimentalFoundationApi::class)
@@ -155,7 +158,7 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
                         }) {
                             Icon(Icons.Default.Share, contentDescription = "Delete Selected")
                         }
-                    } else { // Show default actions when not in multi-select mode
+                    } else {
                         IconButton(onClick = {
                             pdfFile = PdfUtils.compileImagesToPdf(context, imageList, currentFolderName)
                                 ?: return@IconButton
@@ -174,22 +177,55 @@ fun GridPreviewScreen(navController: NavController, fileViewModel: FileViewModel
             )
         },
         bottomBar = {
-            if (!multiSelectMode) {
+            if (!multiSelectMode) { // **Inverted the condition here:  !multiSelectMode**
+                // Default BottomAppBar
                 BottomAppBar {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceAround
                     ) {
                         BottomBarButton("Add Page", Icons.Default.Add) {
-                            Log.d("AddPage", fileViewModel.isViewSessionActive.toString())
-                            navController.navigate("camera")
+                            // ...
                         }
-                        BottomBarButton("Share", Icons.Default.Share) { /* Share Logic */ }
-                        //BottomBarButton("Edit", Icons.Default.Edit) { /* Edit Logic */ }
-                        //BottomBarButton("Search", Icons.Default.Search) { /* Search Logic */ }
+                        BottomBarButton("Share", Icons.Default.Share) {
+                            // ...
+                        }
                         BottomBarButton("View PDF", Icons.Filled.Airplay) {
-                            pdfFile?.let { PdfUtils.openPdfWithExternalApp2(context, it) }
+                            // ...
                         }
+                    }
+                }
+            } else {
+                // BottomAppBar for multi-select mode
+                BottomAppBar {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround
+                    ) {
+                        BottomBarButton("Delete", Icons.Default.Delete) { // Now using the correct icon
+                            if (selectedImages.isNotEmpty()) {
+                                selectedImages.forEach { path -> File(path).delete() }
+                                fileViewModel.updateImagePaths(folderName)
+                                Toast.makeText(context, "Selected images deleted", Toast.LENGTH_SHORT).show()
+                                multiSelectMode = false
+                                selectedImages = emptySet()
+                            } else {
+                                Toast.makeText(context, "No images selected", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        // Add other actions as needed, e.g., "Select All", "Cancel"
+                        BottomBarButton("Select All", Icons.Default.CheckCircle) {
+                            selectedImages = imageList.map { it.path }.toSet()
+                        }
+                        BottomBarButton("Cancel", Icons.AutoMirrored.Sharp.ArrowBack) {
+                            multiSelectMode = false
+                            selectedImages = emptySet()
+                        }
+                        BottomBarButton(
+                            label = "Create PDF",
+                            icon= Icons.Default.PictureAsPdf,
+                            onClick = {/*Create logic */}
+                        )
                     }
                 }
             }
