@@ -1,84 +1,84 @@
-# 📚 GetPYQ - Past Year Question Papers Organizer
+# GetPYQ - Past Year Question Papers Organizer
 
-GetPYQ is an Android application designed to streamline the process of uploading, organizing, and accessing past year question papers (PYQs) efficiently. The app leverages **Jetpack Compose**, **Firebase Authentication**, **Supabase**, and **Cloudinary** for a seamless experience.
-
----
-
-## 🚀 Features
-
-### 📌 **User Roles**
-- **Guest Users**: Browse and access available PDFs.
-- **Uploaders**: Authenticate via Firebase, upload PYQs, and track uploads.
-
-### 📂 **Document Management**
-- Upload question papers from a structured folder format.
-- Store and manage PDFs efficiently in **Cloudinary**.
-- Fetch uploaded documents via **Supabase**.
-
-### 🔍 **Smart Filtering & Search**
-- Browse PYQs based on **Semester, Subject, and Exam Type**.
-- View uploaded files directly within the app.
-- Download PDFs for offline access.
-
-### 🎨 **Modern UI**
-- **Jetpack Compose UI** for a dynamic and smooth experience.
-- **Modal drawer** to view uploaded PDFs by the current user.
-- **Lazy lists** for efficient document browsing.
-
-### 🔄 **Real-time Sync & Security**
-- **Firebase Authentication** for uploader verification.
-- **Supabase Postgres Database** for tracking uploads.
-- **Cloudinary Storage** for optimized file storage.
+**GetPYQ** is a robust Android application tailored to streamline the uploading, organization, and retrieval of Past Year Question Papers (PYQs). It harnesses the power of **Jetpack Compose**, **Firebase Authentication**, **Supabase**, and **Cloudinary** to offer a seamless and modern user experience.
 
 ---
 
-## 🛠️ Tech Stack
+## Features
 
-| Technology      | Usage                    |
-|---------------|--------------------------|
-| **Jetpack Compose** | UI Components & Navigation |
-| **Firebase Auth** | User Authentication |
-| **Supabase** | Database for tracking uploads |
-| **Cloudinary** | File Storage & PDF Processing |
-| **Hilt (DI)** | Dependency Injection |
-| **Kotlin Coroutines** | Async operations |
+### **User Roles**
+- **Guest Users**: Browse and download publicly available PDFs.
+- **Uploaders**: Authenticated via Firebase to upload PYQs and view their upload history.
+
+### **Document Management**
+- Upload PDFs directly from structured folders.
+- Efficient cloud storage and retrieval using **Cloudinary**.
+- Metadata and upload tracking powered by **Supabase**.
+
+### **Smart Filtering & Search**
+- Filter documents by **Semester**, **Subject**, and **Exam Type**.
+- View documents within the app.
+- Offline access via PDF downloads.
+
+### **Modern UI**
+- Intuitive and responsive interface built with **Jetpack Compose**.
+- **Modal Drawer** integration for user uploads.
+- Optimized performance using **Lazy Lists**.
+
+### **Real-time Sync & Secure Access**
+- **Firebase Authentication** ensures secure uploader access.
+- **Supabase** for real-time document tracking.
+- **Cloudinary** for high-performance PDF hosting.
 
 ---
 
-## 📦 Folder Structure
+## Tech Stack
+
+| Technology            | Purpose                          |
+|----------------------|----------------------------------|
+| **Jetpack Compose**   | UI Components & Navigation       |
+| **Firebase Auth**     | User Authentication              |
+| **Supabase**          | Upload Metadata & Tracking       |
+| **Cloudinary**        | File Hosting & PDF Management    |
+| **Hilt (DI)**         | Dependency Injection             |
+| **Kotlin Coroutines** | Asynchronous Operations          |
+
+---
+
+## Folder Structure
 
 ```
-📂 getpyq/
- ├── 📂 app/ (Main application logic)
- ├── 📂 ui/ (Jetpack Compose UI screens & components)
- ├── 📂 viewmodels/ (MVVM Architecture ViewModels)
- ├── 📂 repository/ (Data handling logic)
- ├── 📂 storage/ (Cloudinary & local storage handling)
- ├── 📂 data/ (Data classes & models)
- ├── 📂 utils/ (Helper functions & utilities)
+getpyq/
+ ├── app/         # Main application logic
+ ├── ui/          # Jetpack Compose UI components
+ ├── viewmodels/  # MVVM architecture ViewModels
+ ├── repository/  # Data handling logic
+ ├── storage/     # Cloudinary & local storage
+ ├── data/        # Data models and schema
+ ├── utils/       # Helper functions and utilities
 ```
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
-### 1️⃣ **Clone the Repository**
+### **Step 1: Clone the Repository**
 ```sh
 git clone https://github.com/MK10UNoY/GetPYQ.git
 cd GetPYQ
 ```
 
-### 2️⃣ **Setup Firebase**
+### **Step 2: Set Up Firebase**
 - Create a Firebase project.
 - Enable **Email Authentication**.
-- Download `google-services.json` and place it in `app/`.
+- Download `google-services.json` and place it in the `app/` directory.
 
-### 3️⃣ **Configure Supabase**
-- Create a **Supabase Project**.
-- Set up the `uploadtrackregister` table.
-- Store the Supabase URL and API key securely.
+### **Step 3: Configure Supabase**
+- Create a new **Supabase Project**.
+- Add a table named `uploadtrackregister` for tracking uploads.
+- Securely store your Supabase URL and API key.
 
-### 4️⃣ **Run the App**
+### **Step 4: Build & Run**
 ```sh
 ./gradlew build
 ./gradlew installDebug
@@ -86,9 +86,9 @@ cd GetPYQ
 
 ---
 
-## 📜 API Usage
+## API Usage
 
-### **Fetching Uploaded PDFs**
+### **Fetch Uploaded PDFs**
 ```kotlin
 uploadTrackingViewModel.fetchSubjectPdfUrls(PyqMetaData(
     uploadsubject = "CS101",
@@ -97,7 +97,7 @@ uploadTrackingViewModel.fetchSubjectPdfUrls(PyqMetaData(
 ))
 ```
 
-### **Uploading a PDF**
+### **Upload a PDF**
 ```kotlin
 FileStorage.uploadToCloudinary2(
     fileUri = fileUri,
@@ -115,25 +115,26 @@ FileStorage.uploadToCloudinary2(
 
 ---
 
-## 🛠️ Contributors
+## Contributors
 
-👤 **Your Name**  
-- GitHub: https://github.com/MK10UNoY/
-- LinkedIn: https://www.linkedin.com/in/mrinmoy-koiri-a1a03327b/
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+**Mrinmoy Koiri**  
+- GitHub: [@MK10UNoY](https://github.com/MK10UNoY)  
+- LinkedIn: [Mrinmoy Koiri](https://www.linkedin.com/in/mrinmoy-koiri-a1a03327b/)
 
 ---
 
-## ⭐ Support & Contributions
+## License
 
-- Found a bug? Open an **issue** 🐞.
-- Want to contribute? Submit a **pull request** ⚡.
-- Love the project? **Star** ⭐ the repo to show your support!
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for more details.
 
-🚀 **Happy Coding!**
+---
 
+## Support & Contributions
+
+- Found a bug? Feel free to [open an issue](https://github.com/MK10UNoY/GetPYQ/issues)
+- Want to contribute? Submit a pull request
+- Like the project? Star the repository to show your support!
+
+---
+
+**Empowering students with organized academic resources. Happy Learning!**
