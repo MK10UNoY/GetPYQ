@@ -75,7 +75,7 @@ fun AppNavigation(navController: NavHostController) {
         composable(
             "home",
             enterTransition = { slideInBottom() },
-            exitTransition = { slideOutTop() }) { Home(navController,userViewModel) }
+            exitTransition = { slideOutTop() }) { Home() }
 
         composable("test", enterTransition = { slideInBottom() }, exitTransition = { slideOutTop() }) { TestScreen() }
         // ✅ Camera Screen (Slide + Fade)
@@ -100,7 +100,7 @@ fun AppNavigation(navController: NavHostController) {
             val branch = backStackEntry.arguments?.getString("branch") ?: "EE"
             val isMidsem =
                 backStackEntry.arguments?.getString("mode")?.toBooleanStrictOrNull() ?: false
-            SubjectListScreen(navController, semester, branch, isMidsem)
+            SubjectListScreen()
         }
         composable("pdfList/{semester}/{subject}/{examType}") { backStackEntry ->
             val semester = backStackEntry.arguments?.getString("semester") ?: "1"
